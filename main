@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>家計簿入力</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;background:#f6f7f9;min-height:100vh}
+    .wrap{max-width:480px;margin:0 auto;padding:16px 12px 40px}
+    h1{font-size:17px;font-weight:600;margin-bottom:16px;color:#1a1a1a}
+    .section{margin-bottom:20px}
+    .label{font-size:12px;color:#888;margin-bottom:8px;font-weight:500}
+    .cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .cat-btn{
+      padding:10px 4px;border:1.5px solid #e0e0e0;border-radius:10px;
+      background:#fff;font-size:13px;cursor:pointer;text-align:center;
+      transition:all .15s;color:#333;line-height:1.4
+    }
+    .cat-btn .emoji{font-size:18px;display:block;margin-bottom:2px}
+    .cat-btn.selected{border-color:#2a73ff;background:#eef3ff;color:#2a73ff;font-weight:600}
+    .amount-wrap{position:relative}
+    .amount-wrap span{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:18px;color:#888}
+    input[type=number]{
+      width:100%;padding:14px 14px 14px 32px;
+      border:1.5px solid #e0e0e0;border-radius:10px;
+      font-size:22px;font-weight:600;background:#fff;
+      -moz-appearance:textfield
+    }
+    input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+    input[type=number]:focus{outline:none;border-color:#2a73ff}
+    input[type=date]{
+      width:100%;padding:12px 14px;
+      border:1.5px solid #e0e0e0;border-radius:10px;
+      font-size:15px;background:#fff
+    }
+    input[type=date]:focus{outline:none;border-color:#2a73ff}
+    input[type=text]{
+      width:100%;padding:12px 14px;
+      border:1.5px solid #e0e0e0;border-radius:10px;
+      font-size:15px;background:#fff
+    }
+    input[type=text]:focus{outline:none;border-color:#2a73ff}
+    .submit{
+      width:100%;padding:16px;border:none;border-radius:12px;
+      font-size:17px;font-weight:600;background:#2a73ff;color:#fff;
+      cursor:pointer;margin-top:8px;transition:opacity .15s
+    }
+    .submit:disabled{opacity:.5;cursor:not-allowed}
+    .msg{margin-top:12px;font-size:13px;text-align:center;min-height:20px}
+    .ok{color:#0a7f3f}.err{color:#b00020}
+  </style>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <h1>💴 支出を記録</h1>
+
+  <div class="section">
+    <div class="label">カテゴリ</div>
+    <div class="cat-grid" id="catGrid"></div>
+  </div>
+
+  <div class="section">
+    <div class="label">金額</div>
+    <div class="amount-wrap">
+      <span>¥</span>
+      <input type="number" id="amount" inputmode="numeric" placeholder="0">
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="label">日付</div>
+    <input type="date" id="date">
+  </div>
+
+  <div class="section">
+    <div class="label">メモ（任意）</div>
+    <input type="text" id="memo" placeholder="店名・用途など">
+  </div>
+
+  <button class="submit" id="submitBtn" disabled>記録する</button>
+  <div class="msg" id="msg"></div>
+</div>
+
+<script>
+const LIFF_ID = '2008067708-MnnJ68ov';
+const GAS_URL = 'YOUR_GAS_URL_HERE';
+
+const CATS = [
+  { key:'食費・日用品', emoji:'🛒', label:'食費\n日用品' },
+  { key:'外食',         emoji:'🍜', label:'外食' },
+  { key:'光熱費・通信費',emoji:'💡', label:'光熱費\n通信費' },
+  { key:'交通費',       emoji:'🚃', label:'交通費' },
+  { key:'娯楽',         emoji:'🎉', label:'娯楽' },
+  { key:'医療・教育',   emoji:'🏥', label:'医療\n教育' },
+  { key:'交際費',       emoji:'🥂', label:'交際費' },
+  { key:'その他',       emoji:'📦', label:'その他' },
+];
+
+let selectedCat = null;
+
+const grid = document.getElementById('catGrid');
+CATS.forEach(c => {
+  const btn = document.createElement('button');
+  btn.className = 'cat-btn';
+  btn.innerHTML = `<span class="emoji">${c.emoji}</span>${c.label.replace('\n','<br>')}`;
+  btn.onclick = () => {
+    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedCat = c.key;
+    updateSubmit();
+  };
+  grid.appendChild(btn);
+});
+
+const t = new Date();
+document.getElementById('date').value =
+  `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+
+function updateSubmit() {
+  const ok = selectedCat && Number(document.getElementById('amount').value) > 0;
+  document.getElementById('submitBtn').disabled = !ok;
+}
+document.getElementById('amount').addEventListener('input', updateSubmit);
+
+function show(text, isErr) {
+  const el = document.getElementById('msg');
+  el.textContent = text;
+  el.className = 'msg ' + (isErr ? 'err' : 'ok');
+}
+
+async function init() {
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) liff.login();
+  } catch(e) {
+    show('LIFF初期化エラー: ' + e.message, true);
+  }
+}
+
+document.getElementById('submitBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  show('送信中…');
+
+  try {
+    let uid = '';
+    try { uid = (await liff.getProfile()).userId; } catch(e) {}
+    if (!uid) try { uid = liff.getDecodedIDToken()?.sub || ''; } catch(e) {}
+    if (!uid) throw new Error('ユーザーIDを取得できませんでした');
+
+    const amount = Number(document.getElementById('amount').value);
+    const date   = document.getElementById('date').value;
+    const memo   = document.getElementById('memo').value;
+
+    if (!selectedCat) throw new Error('カテゴリを選択してください');
+    if (amount <= 0)  throw new Error('金額を入力してください');
+
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'formAdd',
+        uid,
+        dateStr: date,
+        amount,
+        category: selectedCat,
+        memo
+      })
+    });
+
+    const json = await res.json();
+    if (json.status !== 'ok') throw new Error(json.message || '登録に失敗しました');
+
+    show('✅ 記録しました！');
+    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+    selectedCat = null;
+    document.getElementById('amount').value = '';
+    document.getElementById('memo').value = '';
+    btn.disabled = true;
+    setTimeout(() => { try { liff.closeWindow(); } catch(e) {} }, 1200);
+
+  } catch(e) {
+    show(e.message, true);
+    btn.disabled = false;
+  }
+});
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
