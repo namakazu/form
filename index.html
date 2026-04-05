@@ -85,17 +85,15 @@
 
 <script>
 const LIFF_ID = '2008067708-MnnJ68ov';
-const GAS_URL = 'YOUR_GAS_URL_HERE';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzrfL8YFHZFjBvyaliUkgkJnQ_ojoKd5D0CKKQD66PAdpvSsGaC5p1SVj-6kpHs2jB6bA/exec'; // ← ここだけ自分のGASのURLに変える
 
 const CATS = [
-  { key:'食費・日用品', emoji:'🛒', label:'食費\n日用品' },
-  { key:'外食',         emoji:'🍜', label:'外食' },
-  { key:'光熱費・通信費',emoji:'💡', label:'光熱費\n通信費' },
-  { key:'交通費',       emoji:'🚃', label:'交通費' },
-  { key:'娯楽',         emoji:'🎉', label:'娯楽' },
-  { key:'医療・教育',   emoji:'🏥', label:'医療\n教育' },
-  { key:'交際費',       emoji:'🥂', label:'交際費' },
-  { key:'その他',       emoji:'📦', label:'その他' },
+  { key:'食費',   emoji:'🍜', label:'食費' },
+  { key:'交通',   emoji:'🚃', label:'交通' },
+  { key:'交際',   emoji:'🥂', label:'交際' },
+  { key:'日用品', emoji:'🛒', label:'日用品' },
+  { key:'娯楽',   emoji:'🎉', label:'娯楽' },
+  { key:'その他', emoji:'📦', label:'その他' },
 ];
 
 let selectedCat = null;
@@ -104,7 +102,7 @@ const grid = document.getElementById('catGrid');
 CATS.forEach(c => {
   const btn = document.createElement('button');
   btn.className = 'cat-btn';
-  btn.innerHTML = `<span class="emoji">${c.emoji}</span>${c.label.replace('\n','<br>')}`;
+  btn.innerHTML = `<span class="emoji">${c.emoji}</span>${c.label}`;
   btn.onclick = () => {
     document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
