@@ -155,9 +155,10 @@ document.getElementById('submitBtn').addEventListener('click', async () => {
     if (!selectedCat) throw new Error('カテゴリを選択してください');
     if (amount <= 0)  throw new Error('金額を入力してください');
 
-    const res = await fetch(GAS_URL, {
+    await fetch(GAS_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({
         action: 'formAdd',
         uid,
@@ -167,9 +168,6 @@ document.getElementById('submitBtn').addEventListener('click', async () => {
         memo
       })
     });
-
-    const json = await res.json();
-    if (json.status !== 'ok') throw new Error(json.message || '登録に失敗しました');
 
     show('✅ 記録しました！');
     document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
