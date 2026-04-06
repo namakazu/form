@@ -9,8 +9,14 @@
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;background:#f6f7f9;min-height:100vh}
     .wrap{max-width:480px;margin:0 auto;padding:16px 12px 40px}
-    h1{font-size:17px;font-weight:600;margin-bottom:4px;color:#1a1a1a}
-    .subtitle{font-size:12px;color:#888;margin-bottom:20px}
+    h1{font-size:17px;font-weight:600;margin-bottom:16px;color:#1a1a1a}
+
+    /* タブ */
+    .tabs{display:flex;gap:0;margin-bottom:16px;border-radius:10px;overflow:hidden;border:1.5px solid #e0e0e0;background:#fff}
+    .tab{flex:1;padding:10px;text-align:center;font-size:14px;cursor:pointer;color:#888;background:#fff;border:none;transition:all .15s}
+    .tab.active{background:#2a73ff;color:#fff;font-weight:600}
+
+    /* グラフタブ */
     .card{background:#fff;border-radius:12px;padding:16px;margin-bottom:16px;border:0.5px solid #e0e0e0}
     .card-title{font-size:13px;font-weight:500;color:#555;margin-bottom:12px}
     .total-box{background:#2a73ff;border-radius:12px;padding:16px;margin-bottom:16px;color:#fff}
@@ -27,18 +33,93 @@
     .cat-bar{height:6px;border-radius:4px;transition:width 0.5s}
     .cat-name{font-size:13px;color:#333;min-width:90px}
     .cat-amount{font-size:13px;font-weight:500;color:#333;min-width:70px;text-align:right}
-    .loading{text-align:center;padding:40px;color:#888;font-size:14px}
-    .error{text-align:center;padding:40px;color:#b00020;font-size:13px}
     .chart-wrap{position:relative;height:220px;margin:8px 0}
     .trend-wrap{position:relative;height:200px;margin:8px 0}
+
+    /* 履歴タブ */
+    .history-item{background:#fff;border-radius:10px;padding:12px 14px;margin-bottom:8px;border:0.5px solid #e0e0e0}
+    .history-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+    .history-cat{font-size:13px;font-weight:500;color:#333}
+    .history-amount{font-size:15px;font-weight:600;color:#2a73ff}
+    .history-meta{font-size:12px;color:#888}
+    .history-actions{display:flex;gap:6px;margin-top:8px}
+    .btn-edit{padding:5px 12px;border:1.5px solid #2a73ff;border-radius:6px;background:#fff;color:#2a73ff;font-size:12px;cursor:pointer}
+    .btn-delete{padding:5px 12px;border:1.5px solid #e0e0e0;border-radius:6px;background:#fff;color:#b00020;font-size:12px;cursor:pointer}
+
+    /* 編集モーダル */
+    .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:100;display:none}
+    .modal-overlay.show{display:flex}
+    .modal{background:#fff;border-radius:16px;padding:20px;width:90%;max-width:400px}
+    .modal-title{font-size:16px;font-weight:600;margin-bottom:16px}
+    .modal-field{margin-bottom:12px}
+    .modal-field label{display:block;font-size:12px;color:#888;margin-bottom:4px}
+    .modal-field input,.modal-field select{width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:15px}
+    .modal-actions{display:flex;gap:8px;margin-top:16px}
+    .btn-save{flex:1;padding:12px;border:none;border-radius:8px;background:#2a73ff;color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+    .btn-cancel{flex:1;padding:12px;border:1.5px solid #e0e0e0;border-radius:8px;background:#fff;color:#555;font-size:15px;cursor:pointer}
+
+    .loading{text-align:center;padding:40px;color:#888;font-size:14px}
+    .error{text-align:center;padding:40px;color:#b00020;font-size:13px}
+    .hidden{display:none}
   </style>
 </head>
 <body>
 <div class="wrap">
   <h1>📊 家計簿レポート</h1>
-  <p class="subtitle">家族2人の合計支出</p>
-  <div class="month-selector" id="monthSelector"></div>
-  <div id="content"><div class="loading">読み込み中...</div></div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('graph')">📊 グラフ</button>
+    <button class="tab" onclick="switchTab('history')">📋 履歴</button>
+  </div>
+
+  <!-- グラフタブ -->
+  <div id="graphTab">
+    <div class="month-selector" id="monthSelector"></div>
+    <div id="graphContent"><div class="loading">読み込み中...</div></div>
+  </div>
+
+  <!-- 履歴タブ -->
+  <div id="historyTab" class="hidden">
+    <div id="historyContent"><div class="loading">読み込み中...</div></div>
+  </div>
+</div>
+
+<!-- 編集モーダル -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-title">✏️ 記録を編集</div>
+    <div class="modal-field">
+      <label>日付</label>
+      <input type="date" id="editDate">
+    </div>
+    <div class="modal-field">
+      <label>カテゴリ</label>
+      <select id="editCategory">
+        <option>食費</option>
+        <option>交通</option>
+        <option>交際</option>
+        <option>日用品</option>
+        <option>娯楽</option>
+        <option>その他</option>
+        <option>食費・日用品</option>
+        <option>外食</option>
+        <option>光熱費・通信費</option>
+        <option>交際費</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>金額</label>
+      <input type="number" id="editAmount" inputmode="numeric">
+    </div>
+    <div class="modal-field">
+      <label>メモ</label>
+      <input type="text" id="editMemo" placeholder="メモ（任意）">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+      <button class="btn-save" onclick="saveEdit()">保存する</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -60,23 +141,40 @@ let allData = [];
 let selectedMonth = '';
 let pieChart = null;
 let barChart = null;
+let currentTab = 'graph';
+let editingRowIndex = null;
 
+// データ読み込み
 function loadData() {
   const callbackName = 'cb_' + Date.now();
   window[callbackName] = function(json) {
     allData = json.data || [];
     setupMonths();
+    renderHistory();
     delete window[callbackName];
   };
   const script = document.createElement('script');
   script.src = GAS_URL + '?action=getReport&callback=' + callbackName;
   script.onerror = function() {
-    document.getElementById('content').innerHTML =
-      '<div class="error">データの読み込みに失敗しました。<br>GAS_URLを確認してください。</div>';
+    document.getElementById('graphContent').innerHTML =
+      '<div class="error">データの読み込みに失敗しました。</div>';
+    document.getElementById('historyContent').innerHTML =
+      '<div class="error">データの読み込みに失敗しました。</div>';
   };
   document.head.appendChild(script);
 }
 
+// タブ切り替え
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', (i === 0 && tab === 'graph') || (i === 1 && tab === 'history'));
+  });
+  document.getElementById('graphTab').classList.toggle('hidden', tab !== 'graph');
+  document.getElementById('historyTab').classList.toggle('hidden', tab !== 'history');
+}
+
+// 月セレクター
 function setupMonths() {
   const months = [...new Set(allData.map(r => r.month))].sort().reverse().slice(0, 6);
   selectedMonth = months[0] || '';
@@ -84,7 +182,7 @@ function setupMonths() {
   sel.innerHTML = months.map(m =>
     `<button class="month-btn ${m === selectedMonth ? 'active' : ''}" onclick="selectMonth('${m}')">${m.replace('/', '年')}月</button>`
   ).join('');
-  render();
+  renderGraph();
 }
 
 function selectMonth(m) {
@@ -92,10 +190,11 @@ function selectMonth(m) {
   document.querySelectorAll('.month-btn').forEach(b => {
     b.classList.toggle('active', b.textContent === m.replace('/', '年') + '月');
   });
-  render();
+  renderGraph();
 }
 
-function render() {
+// グラフ描画
+function renderGraph() {
   const rows = allData.filter(r => r.month === selectedMonth && r.amount > 0);
   const total = rows.reduce((s, r) => s + r.amount, 0);
   const cats = {};
@@ -103,7 +202,7 @@ function render() {
   const sorted = Object.entries(cats).sort((a, b) => b[1] - a[1]);
   const trendData = buildTrend();
 
-  document.getElementById('content').innerHTML = `
+  document.getElementById('graphContent').innerHTML = `
     <div class="total-box">
       <div class="total-label">今月の合計支出</div>
       <div class="total-amount">¥${total.toLocaleString()}</div>
@@ -142,10 +241,7 @@ function render() {
         borderWidth: 2, borderColor: '#fff'
       }]
     },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } }
-    }
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
   });
 
   if (barChart) barChart.destroy();
@@ -176,6 +272,94 @@ function buildTrend() {
     month: m,
     total: allData.filter(r => r.month === m && r.amount > 0).reduce((s, r) => s + r.amount, 0)
   }));
+}
+
+// 履歴描画
+function renderHistory() {
+  const sorted = [...allData].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 50);
+
+  if (sorted.length === 0) {
+    document.getElementById('historyContent').innerHTML = '<div class="loading">記録がありません</div>';
+    return;
+  }
+
+  document.getElementById('historyContent').innerHTML = sorted.map(r => {
+    const emoji = CAT_EMOJI[r.category] || '📌';
+    return `
+    <div class="history-item" id="row-${r.rowIndex}">
+      <div class="history-header">
+        <span class="history-cat">${emoji} ${r.category}</span>
+        <span class="history-amount">¥${r.amount.toLocaleString()}</span>
+      </div>
+      <div class="history-meta">${r.date}${r.memo ? ' · ' + r.memo : ''}</div>
+      <div class="history-actions">
+        <button class="btn-edit" onclick="openEdit(${r.rowIndex}, '${r.date}', '${r.category}', ${r.amount}, '${r.memo}')">編集</button>
+        <button class="btn-delete" onclick="deleteRecord(${r.rowIndex})">削除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// 編集モーダル
+function openEdit(rowIndex, date, category, amount, memo) {
+  editingRowIndex = rowIndex;
+  document.getElementById('editDate').value = date;
+  document.getElementById('editCategory').value = category;
+  document.getElementById('editAmount').value = amount;
+  document.getElementById('editMemo').value = memo;
+  document.getElementById('editModal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('editModal').classList.remove('show');
+  editingRowIndex = null;
+}
+
+async function saveEdit() {
+  if (!editingRowIndex) return;
+  const dateStr   = document.getElementById('editDate').value;
+  const category  = document.getElementById('editCategory').value;
+  const amount    = Number(document.getElementById('editAmount').value);
+  const memo      = document.getElementById('editMemo').value;
+
+  if (!dateStr || !category || amount <= 0) {
+    alert('日付・カテゴリ・金額を正しく入力してください');
+    return;
+  }
+
+  await fetch(GAS_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'editRecord', rowIndex: editingRowIndex, dateStr, category, amount, memo })
+  });
+
+  // ローカルデータも更新
+  const idx = allData.findIndex(r => r.rowIndex === editingRowIndex);
+  if (idx !== -1) {
+    allData[idx] = { ...allData[idx], date: dateStr, month: dateStr.slice(0, 7), category, amount, memo };
+  }
+
+  closeModal();
+  renderHistory();
+  setupMonths();
+  alert('✅ 保存しました！');
+}
+
+async function deleteRecord(rowIndex) {
+  if (!confirm('この記録を削除しますか？')) return;
+
+  await fetch(GAS_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'deleteRecord', rowIndex })
+  });
+
+  allData = allData.filter(r => r.rowIndex !== rowIndex);
+  renderHistory();
+  setupMonths();
+  alert('✅ 削除しました！');
 }
 
 loadData();
