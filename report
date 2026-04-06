@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>家計簿レポート</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;background:#f6f7f9;min-height:100vh}
+    .wrap{max-width:480px;margin:0 auto;padding:16px 12px 40px}
+    h1{font-size:17px;font-weight:600;margin-bottom:4px;color:#1a1a1a}
+    .subtitle{font-size:12px;color:#888;margin-bottom:20px}
+    .card{background:#fff;border-radius:12px;padding:16px;margin-bottom:16px;border:0.5px solid #e0e0e0}
+    .card-title{font-size:13px;font-weight:500;color:#555;margin-bottom:12px}
+    .total-box{background:#2a73ff;border-radius:12px;padding:16px;margin-bottom:16px;color:#fff}
+    .total-label{font-size:12px;opacity:0.8;margin-bottom:4px}
+    .total-amount{font-size:28px;font-weight:600}
+    .total-sub{font-size:12px;opacity:0.7;margin-top:4px}
+    .month-selector{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px}
+    .month-btn{padding:6px 14px;border:1.5px solid #e0e0e0;border-radius:20px;background:#fff;font-size:13px;cursor:pointer;white-space:nowrap;color:#555}
+    .month-btn.active{border-color:#2a73ff;background:#eef3ff;color:#2a73ff;font-weight:600}
+    .cat-list{margin-top:8px}
+    .cat-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid #f0f0f0}
+    .cat-item:last-child{border-bottom:none}
+    .cat-bar-wrap{flex:1;background:#f0f0f0;border-radius:4px;height:6px;overflow:hidden}
+    .cat-bar{height:6px;border-radius:4px;transition:width 0.5s}
+    .cat-name{font-size:13px;color:#333;min-width:90px}
+    .cat-amount{font-size:13px;font-weight:500;color:#333;min-width:70px;text-align:right}
+    .loading{text-align:center;padding:40px;color:#888;font-size:14px}
+    .error{text-align:center;padding:40px;color:#b00020;font-size:13px}
+    .chart-wrap{position:relative;height:220px;margin:8px 0}
+    .trend-wrap{position:relative;height:200px;margin:8px 0}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📊 家計簿レポート</h1>
+  <p class="subtitle">家族2人の合計支出</p>
+  <div class="month-selector" id="monthSelector"></div>
+  <div id="content"><div class="loading">読み込み中...</div></div>
+</div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzrfL8YFHZFjBvyaliUkgkJnQ_ojoKd5D0CKKQD66PAdpvSsGaC5p1SVj-6kpHs2jB6bA/exec'; // ← GASのウェブアプリURLに変える
+
+const CAT_COLORS = {
+  '食費':'#FF6384', '食費・日用品':'#FF6384', '外食':'#FF6384',
+  '交通':'#36A2EB', '交際':'#FFCE56', '交際費':'#FFCE56',
+  '日用品':'#4BC0C0', '娯楽':'#9966FF',
+  '光熱費・通信費':'#FF9F40', 'その他':'#C9CBCF'
+};
+const CAT_EMOJI = {
+  '食費':'🍜', '食費・日用品':'🛒', '外食':'🍜',
+  '交通':'🚃', '交際':'🥂', '交際費':'🥂',
+  '日用品':'🛒', '娯楽':'🎉', '光熱費・通信費':'💡', 'その他':'📦'
+};
+
+let allData = [];
+let selectedMonth = '';
+let pieChart = null;
+let barChart = null;
+
+function loadData() {
+  const callbackName = 'cb_' + Date.now();
+  window[callbackName] = function(json) {
+    allData = json.data || [];
+    setupMonths();
+    delete window[callbackName];
+  };
+  const script = document.createElement('script');
+  script.src = GAS_URL + '?action=getReport&callback=' + callbackName;
+  script.onerror = function() {
+    document.getElementById('content').innerHTML =
+      '<div class="error">データの読み込みに失敗しました。<br>GAS_URLを確認してください。</div>';
+  };
+  document.head.appendChild(script);
+}
+
+function setupMonths() {
+  const months = [...new Set(allData.map(r => r.month))].sort().reverse().slice(0, 6);
+  selectedMonth = months[0] || '';
+  const sel = document.getElementById('monthSelector');
+  sel.innerHTML = months.map(m =>
+    `<button class="month-btn ${m === selectedMonth ? 'active' : ''}" onclick="selectMonth('${m}')">${m.replace('/', '年')}月</button>`
+  ).join('');
+  render();
+}
+
+function selectMonth(m) {
+  selectedMonth = m;
+  document.querySelectorAll('.month-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === m.replace('/', '年') + '月');
+  });
+  render();
+}
+
+function render() {
+  const rows = allData.filter(r => r.month === selectedMonth && r.amount > 0);
+  const total = rows.reduce((s, r) => s + r.amount, 0);
+  const cats = {};
+  rows.forEach(r => { cats[r.category] = (cats[r.category] || 0) + r.amount; });
+  const sorted = Object.entries(cats).sort((a, b) => b[1] - a[1]);
+  const trendData = buildTrend();
+
+  document.getElementById('content').innerHTML = `
+    <div class="total-box">
+      <div class="total-label">今月の合計支出</div>
+      <div class="total-amount">¥${total.toLocaleString()}</div>
+      <div class="total-sub">${selectedMonth.replace('/', '年')}月</div>
+    </div>
+    <div class="card">
+      <div class="card-title">カテゴリ別内訳</div>
+      <div class="chart-wrap"><canvas id="pieChart"></canvas></div>
+      <div class="cat-list">
+        ${sorted.map(([cat, amt]) => {
+          const pct = total > 0 ? Math.round(amt / total * 100) : 0;
+          const color = CAT_COLORS[cat] || '#C9CBCF';
+          const emoji = CAT_EMOJI[cat] || '📌';
+          return `<div class="cat-item">
+            <span class="cat-name">${emoji} ${cat}</span>
+            <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:${color}"></div></div>
+            <span class="cat-amount">¥${amt.toLocaleString()}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">月別支出推移</div>
+      <div class="trend-wrap"><canvas id="barChart"></canvas></div>
+    </div>
+  `;
+
+  if (pieChart) pieChart.destroy();
+  pieChart = new Chart(document.getElementById('pieChart'), {
+    type: 'doughnut',
+    data: {
+      labels: sorted.map(([cat]) => cat),
+      datasets: [{
+        data: sorted.map(([,amt]) => amt),
+        backgroundColor: sorted.map(([cat]) => CAT_COLORS[cat] || '#C9CBCF'),
+        borderWidth: 2, borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  if (barChart) barChart.destroy();
+  barChart = new Chart(document.getElementById('barChart'), {
+    type: 'bar',
+    data: {
+      labels: trendData.map(d => d.month.replace('2026/', '')),
+      datasets: [{
+        data: trendData.map(d => d.total),
+        backgroundColor: trendData.map(d => d.month === selectedMonth ? '#2a73ff' : '#B0C4F8'),
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { callback: v => '¥' + v.toLocaleString(), font: { size: 10 } } },
+        x: { ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+function buildTrend() {
+  const months = [...new Set(allData.map(r => r.month))].sort().slice(-6);
+  return months.map(m => ({
+    month: m,
+    total: allData.filter(r => r.month === m && r.amount > 0).reduce((s, r) => s + r.amount, 0)
+  }));
+}
+
+loadData();
+</script>
+</body>
+</html>
