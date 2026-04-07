@@ -10,13 +10,9 @@
     body{font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;background:#f6f7f9;min-height:100vh}
     .wrap{max-width:480px;margin:0 auto;padding:16px 12px 40px}
     h1{font-size:17px;font-weight:600;margin-bottom:16px;color:#1a1a1a}
-
-    /* タブ */
-    .tabs{display:flex;gap:0;margin-bottom:16px;border-radius:10px;overflow:hidden;border:1.5px solid #e0e0e0;background:#fff}
-    .tab{flex:1;padding:10px;text-align:center;font-size:14px;cursor:pointer;color:#888;background:#fff;border:none;transition:all .15s}
+    .tabs{display:flex;margin-bottom:16px;border-radius:10px;overflow:hidden;border:1.5px solid #e0e0e0;background:#fff}
+    .tab{flex:1;padding:10px;text-align:center;font-size:14px;cursor:pointer;color:#888;background:#fff;border:none}
     .tab.active{background:#2a73ff;color:#fff;font-weight:600}
-
-    /* グラフタブ */
     .card{background:#fff;border-radius:12px;padding:16px;margin-bottom:16px;border:0.5px solid #e0e0e0}
     .card-title{font-size:13px;font-weight:500;color:#555;margin-bottom:12px}
     .total-box{background:#2a73ff;border-radius:12px;padding:16px;margin-bottom:16px;color:#fff}
@@ -35,8 +31,6 @@
     .cat-amount{font-size:12px;font-weight:500;color:#333;width:65px;text-align:right;flex-shrink:0}
     .chart-wrap{position:relative;height:220px;margin:8px 0}
     .trend-wrap{position:relative;height:200px;margin:8px 0}
-
-    /* 履歴タブ */
     .history-item{background:#fff;border-radius:10px;padding:12px 14px;margin-bottom:8px;border:0.5px solid #e0e0e0}
     .history-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
     .history-cat{font-size:13px;font-weight:500;color:#333}
@@ -48,8 +42,6 @@
     .history-actions{display:flex;gap:6px;margin-top:8px}
     .btn-edit{padding:5px 14px;border:1.5px solid #2a73ff;border-radius:6px;background:#fff;color:#2a73ff;font-size:12px;cursor:pointer;font-weight:500}
     .btn-delete{padding:5px 14px;border:1.5px solid #ffcccc;border-radius:6px;background:#fff;color:#b00020;font-size:12px;cursor:pointer}
-
-    /* 編集モーダル */
     .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:100}
     .modal-overlay.show{display:flex}
     .modal{background:#fff;border-radius:16px;padding:20px;width:90%;max-width:400px}
@@ -61,7 +53,6 @@
     .modal-actions{display:flex;gap:8px;margin-top:16px}
     .btn-save{flex:1;padding:12px;border:none;border-radius:8px;background:#2a73ff;color:#fff;font-size:15px;font-weight:600;cursor:pointer}
     .btn-cancel{flex:1;padding:12px;border:1.5px solid #e0e0e0;border-radius:8px;background:#fff;color:#555;font-size:15px;cursor:pointer}
-
     .loading{text-align:center;padding:40px;color:#888;font-size:14px}
     .error{text-align:center;padding:40px;color:#b00020;font-size:13px}
     .hidden{display:none}
@@ -70,17 +61,14 @@
 <body>
 <div class="wrap">
   <h1>📊 家計簿レポート</h1>
-
   <div class="tabs">
     <button class="tab active" onclick="switchTab('graph')">📊 グラフ</button>
     <button class="tab" onclick="switchTab('history')">📋 履歴</button>
   </div>
-
   <div id="graphTab">
     <div class="month-selector" id="monthSelector"></div>
     <div id="graphContent"><div class="loading">読み込み中...</div></div>
   </div>
-
   <div id="historyTab" class="hidden">
     <div id="historyContent"><div class="loading">読み込み中...</div></div>
   </div>
@@ -89,33 +77,17 @@
 <div class="modal-overlay" id="editModal">
   <div class="modal">
     <div class="modal-title">✏️ 記録を編集</div>
-    <div class="modal-field">
-      <label>日付</label>
-      <input type="date" id="editDate">
-    </div>
+    <div class="modal-field"><label>日付</label><input type="date" id="editDate"></div>
     <div class="modal-field">
       <label>カテゴリ</label>
       <select id="editCategory">
-        <option>食費</option>
-        <option>外食</option>
-        <option>食費・日用品</option>
-        <option>交通</option>
-        <option>交際</option>
-        <option>交際費</option>
-        <option>日用品</option>
-        <option>娯楽</option>
-        <option>光熱費・通信費</option>
-        <option>その他</option>
+        <option>食費</option><option>外食</option><option>食費・日用品</option>
+        <option>交通</option><option>交際</option><option>交際費</option>
+        <option>日用品</option><option>娯楽</option><option>光熱費・通信費</option><option>その他</option>
       </select>
     </div>
-    <div class="modal-field">
-      <label>金額</label>
-      <input type="number" id="editAmount" inputmode="numeric">
-    </div>
-    <div class="modal-field">
-      <label>メモ</label>
-      <input type="text" id="editMemo" placeholder="メモ（任意）">
-    </div>
+    <div class="modal-field"><label>金額</label><input type="number" id="editAmount" inputmode="numeric"></div>
+    <div class="modal-field"><label>メモ</label><input type="text" id="editMemo" placeholder="メモ（任意）"></div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal()">キャンセル</button>
       <button class="btn-save" onclick="saveEdit()">保存する</button>
@@ -124,20 +96,18 @@
 </div>
 
 <script>
-const GAS_URL  = 'https://script.google.com/macros/s/AKfycbzrfL8YFHZFjBvyaliUkgkJnQ_ojoKd5D0CKKQD66PAdpvSsGaC5p1SVj-6kpHs2jB6bA/exec'; // ← GASのウェブアプリURLに変える
-const MY_UID   = 'U4bf411c6055637faa51b6b3fce78c492'; // かず
-const WIFE_UID = 'U19a984a3d7ca40f383f66393f8dae40d'; // もも
+const GAS_URL  = 'https://script.google.com/macros/s/AKfycbzrfL8YFHZFjBvyaliUkgkJnQ_ojoKd5D0CKKQD66PAdpvSsGaC5p1SVj-6kpHs2jB6bA/exec';
+const MY_UID   = 'U4bf411c6055637faa51b6b3fce78c492';
+const WIFE_UID = 'U19a984a3d7ca40f383f66393f8dae40d';
 
 const CAT_COLORS = {
   '食費':'#FF6384','食費・日用品':'#FF6384','外食':'#FF6384',
   '交通':'#36A2EB','交際':'#FFCE56','交際費':'#FFCE56',
-  '日用品':'#4BC0C0','娯楽':'#9966FF',
-  '光熱費・通信費':'#FF9F40','その他':'#C9CBCF'
+  '日用品':'#4BC0C0','娯楽':'#9966FF','光熱費・通信費':'#FF9F40','その他':'#C9CBCF'
 };
 const CAT_EMOJI = {
-  '食費':'🍜','食費・日用品':'🛒','外食':'🍜',
-  '交通':'🚃','交際':'🥂','交際費':'🥂',
-  '日用品':'🛒','娯楽':'🎉','光熱費・通信費':'💡','その他':'📦'
+  '食費':'🍜','食費・日用品':'🛒','外食':'🍜','交通':'🚃',
+  '交際':'🥂','交際費':'🥂','日用品':'🛒','娯楽':'🎉','光熱費・通信費':'💡','その他':'📦'
 };
 
 let allData = [];
@@ -146,21 +116,27 @@ let pieChart = null;
 let barChart = null;
 let editingRowIndex = null;
 
-function loadData() {
-  const callbackName = 'cb_' + Date.now();
-  window[callbackName] = function(json) {
+function jsonp(url) {
+  return new Promise((resolve, reject) => {
+    const cb = 'cb_' + Date.now();
+    window[cb] = (data) => { resolve(data); delete window[cb]; };
+    const s = document.createElement('script');
+    s.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cb;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+async function loadData() {
+  try {
+    const json = await jsonp(GAS_URL + '?action=getReport');
     allData = json.data || [];
     setupMonths();
     renderHistory();
-    delete window[callbackName];
-  };
-  const script = document.createElement('script');
-  script.src = GAS_URL + '?action=getReport&callback=' + callbackName;
-  script.onerror = function() {
+  } catch(e) {
     document.getElementById('graphContent').innerHTML = '<div class="error">データの読み込みに失敗しました。</div>';
     document.getElementById('historyContent').innerHTML = '<div class="error">データの読み込みに失敗しました。</div>';
-  };
-  document.head.appendChild(script);
+  }
 }
 
 function switchTab(tab) {
@@ -174,8 +150,7 @@ function switchTab(tab) {
 function setupMonths() {
   const months = [...new Set(allData.map(r => r.month))].sort().reverse().slice(0, 6);
   selectedMonth = months[0] || '';
-  const sel = document.getElementById('monthSelector');
-  sel.innerHTML = months.map(m =>
+  document.getElementById('monthSelector').innerHTML = months.map(m =>
     `<button class="month-btn ${m === selectedMonth ? 'active' : ''}" onclick="selectMonth('${m}')">${m.replace('/', '年')}月</button>`
   ).join('');
   renderGraph();
@@ -228,53 +203,30 @@ function renderGraph() {
   if (pieChart) pieChart.destroy();
   pieChart = new Chart(document.getElementById('pieChart'), {
     type: 'doughnut',
-    data: {
-      labels: sorted.map(([cat]) => cat),
-      datasets: [{ data: sorted.map(([,amt]) => amt), backgroundColor: sorted.map(([cat]) => CAT_COLORS[cat] || '#C9CBCF'), borderWidth: 2, borderColor: '#fff' }]
-    },
+    data: { labels: sorted.map(([cat]) => cat), datasets: [{ data: sorted.map(([,amt]) => amt), backgroundColor: sorted.map(([cat]) => CAT_COLORS[cat] || '#C9CBCF'), borderWidth: 2, borderColor: '#fff' }] },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
   });
 
   if (barChart) barChart.destroy();
   barChart = new Chart(document.getElementById('barChart'), {
     type: 'bar',
-    data: {
-      labels: trendData.map(d => d.month.replace('2026/', '')),
-      datasets: [{ data: trendData.map(d => d.total), backgroundColor: trendData.map(d => d.month === selectedMonth ? '#2a73ff' : '#B0C4F8'), borderRadius: 6 }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { ticks: { callback: v => '¥' + v.toLocaleString(), font: { size: 10 } } },
-        x: { ticks: { font: { size: 10 } } }
-      }
-    }
+    data: { labels: trendData.map(d => d.month.replace('2026/', '')), datasets: [{ data: trendData.map(d => d.total), backgroundColor: trendData.map(d => d.month === selectedMonth ? '#2a73ff' : '#B0C4F8'), borderRadius: 6 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: v => '¥' + v.toLocaleString(), font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } } }
   });
 }
 
 function buildTrend() {
   const months = [...new Set(allData.map(r => r.month))].sort().slice(-6);
-  return months.map(m => ({
-    month: m,
-    total: allData.filter(r => r.month === m && r.amount > 0).reduce((s, r) => s + r.amount, 0)
-  }));
+  return months.map(m => ({ month: m, total: allData.filter(r => r.month === m && r.amount > 0).reduce((s, r) => s + r.amount, 0) }));
 }
 
 function renderHistory() {
   const sorted = [...allData].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 50);
-  if (sorted.length === 0) {
-    document.getElementById('historyContent').innerHTML = '<div class="loading">記録がありません</div>';
-    return;
-  }
+  if (sorted.length === 0) { document.getElementById('historyContent').innerHTML = '<div class="loading">記録がありません</div>'; return; }
 
   document.getElementById('historyContent').innerHTML = sorted.map(r => {
     const emoji = CAT_EMOJI[r.category] || '📌';
-    const whoLabel = r.uid === MY_UID
-      ? '<span class="history-who who-kazu">👤 かず</span>'
-      : r.uid === WIFE_UID
-      ? '<span class="history-who who-wife">👤 もも</span>'
-      : '';
+    const whoLabel = r.uid === MY_UID ? '<span class="history-who who-kazu">👤 かず</span>' : r.uid === WIFE_UID ? '<span class="history-who who-wife">👤 もも</span>' : '';
     const memo = (r.memo || '').replace(/'/g, "\\'");
     const cat  = (r.category || '').replace(/'/g, "\\'");
     return `
@@ -313,22 +265,16 @@ async function saveEdit() {
   const category = document.getElementById('editCategory').value;
   const amount   = Number(document.getElementById('editAmount').value);
   const memo     = document.getElementById('editMemo').value;
+  if (!dateStr || !category || amount <= 0) { alert('日付・カテゴリ・金額を正しく入力してください'); return; }
 
-  if (!dateStr || !category || amount <= 0) {
-    alert('日付・カテゴリ・金額を正しく入力してください');
-    return;
-  }
-
-  await fetch(GAS_URL, {
-    method: 'POST', mode: 'no-cors',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ action: 'editRecord', rowIndex: editingRowIndex, dateStr, category, amount, memo })
-  });
+  await jsonp(GAS_URL + '?action=editRecord&rowIndex=' + editingRowIndex
+    + '&dateStr=' + encodeURIComponent(dateStr)
+    + '&category=' + encodeURIComponent(category)
+    + '&amount=' + amount
+    + '&memo=' + encodeURIComponent(memo));
 
   const idx = allData.findIndex(r => r.rowIndex === editingRowIndex);
-  if (idx !== -1) {
-    allData[idx] = { ...allData[idx], date: dateStr, month: dateStr.slice(0, 7), category, amount, memo };
-  }
+  if (idx !== -1) allData[idx] = { ...allData[idx], date: dateStr, month: dateStr.slice(0, 7), category, amount, memo };
 
   closeModal();
   renderHistory();
@@ -338,13 +284,7 @@ async function saveEdit() {
 
 async function deleteRecord(rowIndex) {
   if (!confirm('この記録を削除しますか？')) return;
-
-  await fetch(GAS_URL, {
-    method: 'POST', mode: 'no-cors',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ action: 'deleteRecord', rowIndex })
-  });
-
+  await jsonp(GAS_URL + '?action=deleteRecord&rowIndex=' + rowIndex);
   allData = allData.filter(r => r.rowIndex !== rowIndex);
   renderHistory();
   setupMonths();
