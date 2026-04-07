@@ -4,184 +4,250 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>家計簿入力</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;background:#f6f7f9;min-height:100vh}
     .wrap{max-width:480px;margin:0 auto;padding:16px 12px 40px}
     h1{font-size:17px;font-weight:600;margin-bottom:16px;color:#1a1a1a}
-    .section{margin-bottom:20px}
-    .label{font-size:12px;color:#888;margin-bottom:8px;font-weight:500}
-    .cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-    .cat-btn{
-      padding:10px 4px;border:1.5px solid #e0e0e0;border-radius:10px;
-      background:#fff;font-size:13px;cursor:pointer;text-align:center;
-      transition:all .15s;color:#333;line-height:1.4
-    }
-    .cat-btn .emoji{font-size:18px;display:block;margin-bottom:2px}
+    .tabs{display:flex;margin-bottom:16px;border-radius:10px;overflow:hidden;border:1.5px solid #e0e0e0;background:#fff}
+    .tab{flex:1;padding:10px;text-align:center;font-size:14px;cursor:pointer;color:#888;background:#fff;border:none}
+    .tab.active{background:#2a73ff;color:#fff;font-weight:600}
+    .tab.income-active{background:#00a86b;color:#fff;font-weight:600}
+    .card{background:#fff;border-radius:12px;padding:16px;margin-bottom:16px;border:0.5px solid #e0e0e0}
+    .field{margin-bottom:14px}
+    label{display:block;font-size:12px;color:#666;margin-bottom:6px;font-weight:500}
+    input,select,textarea{width:100%;font-size:16px;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;background:#fff}
+    input:focus,select:focus,textarea:focus{outline:none;border-color:#2a73ff}
+    .cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px}
+    .cat-btn{padding:10px 4px;border:1.5px solid #e0e0e0;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;text-align:center;color:#555}
     .cat-btn.selected{border-color:#2a73ff;background:#eef3ff;color:#2a73ff;font-weight:600}
-    .amount-wrap{position:relative}
-    .amount-wrap span{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:18px;color:#888}
-    input[type=number]{
-      width:100%;padding:14px 14px 14px 32px;
-      border:1.5px solid #e0e0e0;border-radius:10px;
-      font-size:22px;font-weight:600;background:#fff;
-      -moz-appearance:textfield
-    }
-    input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
-    input[type=number]:focus{outline:none;border-color:#2a73ff}
-    input[type=date]{
-      width:100%;padding:12px 14px;
-      border:1.5px solid #e0e0e0;border-radius:10px;
-      font-size:15px;background:#fff
-    }
-    input[type=date]:focus{outline:none;border-color:#2a73ff}
-    input[type=text]{
-      width:100%;padding:12px 14px;
-      border:1.5px solid #e0e0e0;border-radius:10px;
-      font-size:15px;background:#fff
-    }
-    input[type=text]:focus{outline:none;border-color:#2a73ff}
-    .submit{
-      width:100%;padding:16px;border:none;border-radius:12px;
-      font-size:17px;font-weight:600;background:#2a73ff;color:#fff;
-      cursor:pointer;margin-top:8px;transition:opacity .15s
-    }
-    .submit:disabled{opacity:.5;cursor:not-allowed}
-    .msg{margin-top:12px;font-size:13px;text-align:center;min-height:20px}
-    .ok{color:#0a7f3f}.err{color:#b00020}
+    .inc-btn{padding:10px 4px;border:1.5px solid #e0e0e0;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;text-align:center;color:#555}
+    .inc-btn.selected{border-color:#00a86b;background:#e6f7f0;color:#00a86b;font-weight:600}
+    .btn-submit{width:100%;padding:14px;border:none;border-radius:10px;font-size:16px;font-weight:600;color:#fff;cursor:pointer;margin-top:4px}
+    .btn-expense{background:#2a73ff}
+    .btn-income{background:#00a86b}
+    .btn-submit:disabled{opacity:.6;cursor:not-allowed}
+    .msg{font-size:13px;margin-top:10px;text-align:center;padding:8px;border-radius:8px}
+    .msg.ok{background:#e6f7f0;color:#00a86b}
+    .msg.err{background:#fff0f0;color:#b00020}
+    .hidden{display:none}
   </style>
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
 <div class="wrap">
-  <h1>💴 支出を記録</h1>
+  <h1>📒 こてらん家のお金</h1>
 
-  <div class="section">
-    <div class="label">カテゴリ</div>
-    <div class="cat-grid" id="catGrid"></div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('expense')">💴 支出を記録</button>
+    <button class="tab" onclick="switchTab('income')">💰 収入を記録</button>
   </div>
 
-  <div class="section">
-    <div class="label">金額</div>
-    <div class="amount-wrap">
-      <span>¥</span>
-      <input type="number" id="amount" inputmode="numeric" placeholder="0">
+  <!-- 支出タブ -->
+  <div id="expenseTab">
+    <div class="card">
+      <div class="field">
+        <label>カテゴリ</label>
+        <div class="cat-grid" id="catGrid"></div>
+      </div>
+      <div class="field">
+        <label>金額（円）</label>
+        <input type="number" id="amount" inputmode="numeric" placeholder="例: 600">
+      </div>
+      <div class="field">
+        <label>日付</label>
+        <input type="date" id="date">
+      </div>
+      <div class="field">
+        <label>メモ（任意）</label>
+        <input type="text" id="memo" placeholder="店名や用途など">
+      </div>
+      <button class="btn-submit btn-expense" id="submitBtn" disabled onclick="submitExpense()">記録する</button>
+      <div id="expenseMsg" class="msg hidden"></div>
     </div>
   </div>
 
-  <div class="section">
-    <div class="label">日付</div>
-    <input type="date" id="date">
+  <!-- 収入タブ -->
+  <div id="incomeTab" class="hidden">
+    <div class="card">
+      <div class="field">
+        <label>種別</label>
+        <div class="cat-grid" id="incGrid"></div>
+      </div>
+      <div class="field">
+        <label>金額（円）</label>
+        <input type="number" id="incAmount" inputmode="numeric" placeholder="例: 250000">
+      </div>
+      <div class="field">
+        <label>日付</label>
+        <input type="date" id="incDate">
+      </div>
+      <div class="field">
+        <label>メモ（任意）</label>
+        <input type="text" id="incMemo" placeholder="例: 4月給与">
+      </div>
+      <button class="btn-submit btn-income" id="incSubmitBtn" disabled onclick="submitIncome()">記録する</button>
+      <div id="incomeMsg" class="msg hidden"></div>
+    </div>
   </div>
-
-  <div class="section">
-    <div class="label">メモ（任意）</div>
-    <input type="text" id="memo" placeholder="店名・用途など">
-  </div>
-
-  <button class="submit" id="submitBtn" disabled>記録する</button>
-  <div class="msg" id="msg"></div>
 </div>
 
 <script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzrfL8YFHZFjBvyaliUkgkJnQ_ojoKd5D0CKKQD66PAdpvSsGaC5p1SVj-6kpHs2jB6bA/exec';
 const LIFF_ID = '2008067708-MnnJ68ov';
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzrfL8YFHZFjBvyaliUkgkJnQ_ojoKd5D0CKKQD66PAdpvSsGaC5p1SVj-6kpHs2jB6bA/exec'; // ← ここだけ自分のGASのURLに変える
 
 const CATS = [
-  { key:'食費',   emoji:'🍜', label:'食費' },
-  { key:'交通',   emoji:'🚃', label:'交通' },
-  { key:'交際',   emoji:'🥂', label:'交際' },
-  { key:'日用品', emoji:'🛒', label:'日用品' },
-  { key:'娯楽',   emoji:'🎉', label:'娯楽' },
-  { key:'その他', emoji:'📦', label:'その他' },
+  {key:'食費', emoji:'🍜'},
+  {key:'交通', emoji:'🚃'},
+  {key:'交際', emoji:'🥂'},
+  {key:'日用品', emoji:'🛒'},
+  {key:'娯楽', emoji:'🎉'},
+  {key:'その他', emoji:'📦'},
+];
+
+const INC_TYPES = [
+  {key:'給与', emoji:'💼'},
+  {key:'副業', emoji:'💻'},
+  {key:'賞与', emoji:'🎁'},
+  {key:'その他', emoji:'📦'},
 ];
 
 let selectedCat = null;
+let selectedInc = null;
+let uid = '';
 
-const grid = document.getElementById('catGrid');
-CATS.forEach(c => {
-  const btn = document.createElement('button');
-  btn.className = 'cat-btn';
-  btn.innerHTML = `<span class="emoji">${c.emoji}</span>${c.label}`;
-  btn.onclick = () => {
-    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
-    selectedCat = c.key;
-    updateSubmit();
-  };
-  grid.appendChild(btn);
-});
-
-const t = new Date();
-document.getElementById('date').value =
-  `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
-
-function updateSubmit() {
-  const ok = selectedCat && Number(document.getElementById('amount').value) > 0;
-  document.getElementById('submitBtn').disabled = !ok;
-}
-document.getElementById('amount').addEventListener('input', updateSubmit);
-
-function show(text, isErr) {
-  const el = document.getElementById('msg');
-  el.textContent = text;
-  el.className = 'msg ' + (isErr ? 'err' : 'ok');
-}
-
+// LIFF初期化
 async function init() {
   try {
     await liff.init({ liffId: LIFF_ID });
     if (!liff.isLoggedIn()) liff.login();
-  } catch(e) {
-    show('LIFF初期化エラー: ' + e.message, true);
-  }
-}
-
-document.getElementById('submitBtn').addEventListener('click', async () => {
-  const btn = document.getElementById('submitBtn');
-  btn.disabled = true;
-  show('送信中…');
-
-  try {
-    let uid = '';
     try { uid = (await liff.getProfile()).userId; } catch(e) {}
     if (!uid) try { uid = liff.getDecodedIDToken()?.sub || ''; } catch(e) {}
-    if (!uid) throw new Error('ユーザーIDを取得できませんでした');
-
-    const amount = Number(document.getElementById('amount').value);
-    const date   = document.getElementById('date').value;
-    const memo   = document.getElementById('memo').value;
-
-    if (!selectedCat) throw new Error('カテゴリを選択してください');
-    if (amount <= 0)  throw new Error('金額を入力してください');
-
-    await fetch(GAS_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
-        action: 'formAdd',
-        uid,
-        dateStr: date,
-        amount,
-        category: selectedCat,
-        memo
-      })
-    });
-
-    show('✅ 記録しました！');
-    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
-    selectedCat = null;
-    document.getElementById('amount').value = '';
-    document.getElementById('memo').value = '';
-    btn.disabled = true;
-    setTimeout(() => { try { liff.closeWindow(); } catch(e) {} }, 1200);
-
   } catch(e) {
-    show(e.message, true);
-    btn.disabled = false;
+    console.log('LIFF init error:', e);
   }
-});
+
+  // 今日の日付をセット
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = ('0'+(today.getMonth()+1)).slice(-2);
+  const dd = ('0'+today.getDate()).slice(-2);
+  const todayStr = `${yyyy}-${mm}-${dd}`;
+  document.getElementById('date').value = todayStr;
+  document.getElementById('incDate').value = todayStr;
+
+  // カテゴリボタン生成
+  const catGrid = document.getElementById('catGrid');
+  CATS.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'cat-btn';
+    btn.innerHTML = `${c.emoji}<br>${c.key}`;
+    btn.onclick = () => {
+      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedCat = c.key;
+      updateExpenseBtn();
+    };
+    catGrid.appendChild(btn);
+  });
+
+  // 収入種別ボタン生成
+  const incGrid = document.getElementById('incGrid');
+  INC_TYPES.forEach(t => {
+    const btn = document.createElement('button');
+    btn.className = 'inc-btn';
+    btn.innerHTML = `${t.emoji}<br>${t.key}`;
+    btn.onclick = () => {
+      document.querySelectorAll('.inc-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedInc = t.key;
+      updateIncomeBtn();
+    };
+    incGrid.appendChild(btn);
+  });
+
+  // 金額入力でボタン活性化
+  document.getElementById('amount').addEventListener('input', updateExpenseBtn);
+  document.getElementById('incAmount').addEventListener('input', updateIncomeBtn);
+}
+
+function updateExpenseBtn() {
+  const amount = Number(document.getElementById('amount').value);
+  document.getElementById('submitBtn').disabled = !(selectedCat && amount > 0);
+}
+
+function updateIncomeBtn() {
+  const amount = Number(document.getElementById('incAmount').value);
+  document.getElementById('incSubmitBtn').disabled = !(selectedInc && amount > 0);
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.remove('active', 'income-active');
+    if (i === 0 && tab === 'expense') t.classList.add('active');
+    if (i === 1 && tab === 'income') t.classList.add('income-active');
+  });
+  document.getElementById('expenseTab').classList.toggle('hidden', tab !== 'expense');
+  document.getElementById('incomeTab').classList.toggle('hidden', tab !== 'income');
+}
+
+function showMsg(id, text, isErr) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'msg ' + (isErr ? 'err' : 'ok');
+}
+
+async function submitExpense() {
+  const btn = document.getElementById('submitBtn');
+  const amount = Number(document.getElementById('amount').value);
+  const date = document.getElementById('date').value;
+  const memo = document.getElementById('memo').value;
+
+  if (!selectedCat || amount <= 0) return;
+  btn.disabled = true;
+  showMsg('expenseMsg', '送信中…', false);
+
+  await fetch(GAS_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'formAdd', uid, dateStr: date, amount, category: selectedCat, sub: '', memo })
+  });
+
+  showMsg('expenseMsg', '✅ 記録しました！', false);
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+  selectedCat = null;
+  document.getElementById('amount').value = '';
+  document.getElementById('memo').value = '';
+  btn.disabled = true;
+  setTimeout(() => { try { liff.closeWindow(); } catch(e) {} }, 1200);
+}
+
+async function submitIncome() {
+  const btn = document.getElementById('incSubmitBtn');
+  const amount = Number(document.getElementById('incAmount').value);
+  const date = document.getElementById('incDate').value;
+  const memo = document.getElementById('incMemo').value;
+
+  if (!selectedInc || amount <= 0) return;
+  btn.disabled = true;
+  showMsg('incomeMsg', '送信中…', false);
+
+  await fetch(GAS_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'formAdd', uid, dateStr: date, amount: -amount, category: '収入', sub: selectedInc, memo })
+  });
+
+  showMsg('incomeMsg', '✅ 記録しました！', false);
+  document.querySelectorAll('.inc-btn').forEach(b => b.classList.remove('selected'));
+  selectedInc = null;
+  document.getElementById('incAmount').value = '';
+  document.getElementById('incMemo').value = '';
+  btn.disabled = true;
+  setTimeout(() => { try { liff.closeWindow(); } catch(e) {} }, 1200);
+}
 
 document.addEventListener('DOMContentLoaded', init);
 </script>
