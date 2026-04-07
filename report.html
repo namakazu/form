@@ -15,6 +15,20 @@
     .tab.active{background:#2a73ff;color:#fff;font-weight:600}
     .card{background:#fff;border-radius:12px;padding:16px;margin-bottom:16px;border:0.5px solid #e0e0e0}
     .card-title{font-size:13px;font-weight:500;color:#555;margin-bottom:12px}
+
+    /* 収支サマリ */
+    .summary-box{border-radius:12px;padding:16px;margin-bottom:16px;background:#fff;border:0.5px solid #e0e0e0}
+    .summary-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:0.5px solid #f0f0f0}
+    .summary-row:last-child{border-bottom:none;padding-top:10px;margin-top:4px}
+    .summary-label{font-size:13px;color:#555}
+    .summary-amount{font-size:15px;font-weight:600}
+    .income-color{color:#00a86b}
+    .expense-color{color:#2a73ff}
+    .balance-plus{color:#00a86b;font-size:17px}
+    .balance-minus{color:#b00020;font-size:17px}
+    .summary-divider{border:none;border-top:1.5px solid #e0e0e0;margin:4px 0}
+
+    /* グラフタブ */
     .total-box{background:#2a73ff;border-radius:12px;padding:16px;margin-bottom:16px;color:#fff}
     .total-label{font-size:12px;opacity:0.8;margin-bottom:4px}
     .total-amount{font-size:28px;font-weight:600}
@@ -31,10 +45,13 @@
     .cat-amount{font-size:12px;font-weight:500;color:#333;width:65px;text-align:right;flex-shrink:0}
     .chart-wrap{position:relative;height:220px;margin:8px 0}
     .trend-wrap{position:relative;height:200px;margin:8px 0}
+
+    /* 履歴タブ */
     .history-item{background:#fff;border-radius:10px;padding:12px 14px;margin-bottom:8px;border:0.5px solid #e0e0e0}
     .history-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
     .history-cat{font-size:13px;font-weight:500;color:#333}
     .history-amount{font-size:15px;font-weight:600;color:#2a73ff;white-space:nowrap;margin-left:8px}
+    .history-amount.income{color:#00a86b}
     .history-meta{font-size:12px;color:#888;margin-top:2px}
     .history-who{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;margin-top:6px}
     .who-kazu{background:#eef3ff;color:#2a73ff}
@@ -42,6 +59,8 @@
     .history-actions{display:flex;gap:6px;margin-top:8px}
     .btn-edit{padding:5px 14px;border:1.5px solid #2a73ff;border-radius:6px;background:#fff;color:#2a73ff;font-size:12px;cursor:pointer;font-weight:500}
     .btn-delete{padding:5px 14px;border:1.5px solid #ffcccc;border-radius:6px;background:#fff;color:#b00020;font-size:12px;cursor:pointer}
+
+    /* 編集モーダル */
     .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:100}
     .modal-overlay.show{display:flex}
     .modal{background:#fff;border-radius:16px;padding:20px;width:90%;max-width:400px}
@@ -53,6 +72,7 @@
     .modal-actions{display:flex;gap:8px;margin-top:16px}
     .btn-save{flex:1;padding:12px;border:none;border-radius:8px;background:#2a73ff;color:#fff;font-size:15px;font-weight:600;cursor:pointer}
     .btn-cancel{flex:1;padding:12px;border:1.5px solid #e0e0e0;border-radius:8px;background:#fff;color:#555;font-size:15px;cursor:pointer}
+
     .loading{text-align:center;padding:40px;color:#888;font-size:14px}
     .error{text-align:center;padding:40px;color:#b00020;font-size:13px}
     .hidden{display:none}
@@ -65,10 +85,12 @@
     <button class="tab active" onclick="switchTab('graph')">📊 グラフ</button>
     <button class="tab" onclick="switchTab('history')">📋 履歴</button>
   </div>
+
   <div id="graphTab">
     <div class="month-selector" id="monthSelector"></div>
     <div id="graphContent"><div class="loading">読み込み中...</div></div>
   </div>
+
   <div id="historyTab" class="hidden">
     <div id="historyContent"><div class="loading">読み込み中...</div></div>
   </div>
@@ -83,7 +105,8 @@
       <select id="editCategory">
         <option>食費</option><option>外食</option><option>食費・日用品</option>
         <option>交通</option><option>交際</option><option>交際費</option>
-        <option>日用品</option><option>娯楽</option><option>光熱費・通信費</option><option>その他</option>
+        <option>日用品</option><option>娯楽</option><option>光熱費・通信費</option>
+        <option>収入</option><option>その他</option>
       </select>
     </div>
     <div class="modal-field"><label>金額</label><input type="number" id="editAmount" inputmode="numeric"></div>
@@ -107,7 +130,8 @@ const CAT_COLORS = {
 };
 const CAT_EMOJI = {
   '食費':'🍜','食費・日用品':'🛒','外食':'🍜','交通':'🚃',
-  '交際':'🥂','交際費':'🥂','日用品':'🛒','娯楽':'🎉','光熱費・通信費':'💡','その他':'📦'
+  '交際':'🥂','交際費':'🥂','日用品':'🛒','娯楽':'🎉',
+  '光熱費・通信費':'💡','収入':'💰','その他':'📦'
 };
 
 let allData = [];
@@ -165,25 +189,55 @@ function selectMonth(m) {
 }
 
 function renderGraph() {
-  const rows = allData.filter(r => r.month === selectedMonth && r.amount > 0);
-  const total = rows.reduce((s, r) => s + r.amount, 0);
+  // 収入・支出を分離
+  const incomeRows  = allData.filter(r => r.month === selectedMonth && r.category === '収入');
+  const expenseRows = allData.filter(r => r.month === selectedMonth && r.amount > 0 && r.category !== '収入');
+
+  // 収入合計（マイナス値で保存されているので絶対値）
+  const totalIncome  = incomeRows.reduce((s, r) => s + Math.abs(r.amount), 0);
+  const totalExpense = expenseRows.reduce((s, r) => s + r.amount, 0);
+  const balance      = totalIncome - totalExpense;
+  const balanceClass = balance >= 0 ? 'balance-plus' : 'balance-minus';
+  const balanceSign  = balance >= 0 ? '+' : '';
+
+  // カテゴリ別集計（支出のみ）
   const cats = {};
-  rows.forEach(r => { cats[r.category] = (cats[r.category] || 0) + r.amount; });
+  expenseRows.forEach(r => { cats[r.category] = (cats[r.category] || 0) + r.amount; });
   const sorted = Object.entries(cats).sort((a, b) => b[1] - a[1]);
   const trendData = buildTrend();
 
   document.getElementById('graphContent').innerHTML = `
+    <!-- 収支サマリ -->
+    <div class="summary-box">
+      <div class="summary-row">
+        <span class="summary-label">💰 収入</span>
+        <span class="summary-amount income-color">¥${totalIncome.toLocaleString()}</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">💴 支出</span>
+        <span class="summary-amount expense-color">¥${totalExpense.toLocaleString()}</span>
+      </div>
+      <hr class="summary-divider">
+      <div class="summary-row">
+        <span class="summary-label" style="font-weight:600">収支</span>
+        <span class="${balanceClass}">${balanceSign}¥${balance.toLocaleString()}</span>
+      </div>
+    </div>
+
+    <!-- 支出合計 -->
     <div class="total-box">
-      <div class="total-label">今月の合計支出</div>
-      <div class="total-amount">¥${total.toLocaleString()}</div>
+      <div class="total-label">今月の支出合計</div>
+      <div class="total-amount">¥${totalExpense.toLocaleString()}</div>
       <div class="total-sub">${selectedMonth.replace('/', '年')}月</div>
     </div>
+
+    <!-- カテゴリ別内訳 -->
     <div class="card">
-      <div class="card-title">カテゴリ別内訳</div>
+      <div class="card-title">カテゴリ別内訳（支出）</div>
       <div class="chart-wrap"><canvas id="pieChart"></canvas></div>
       <div class="cat-list">
         ${sorted.map(([cat, amt]) => {
-          const pct = total > 0 ? Math.round(amt / total * 100) : 0;
+          const pct = totalExpense > 0 ? Math.round(amt / totalExpense * 100) : 0;
           const color = CAT_COLORS[cat] || '#C9CBCF';
           const emoji = CAT_EMOJI[cat] || '📌';
           return `<div class="cat-item">
@@ -194,6 +248,8 @@ function renderGraph() {
         }).join('')}
       </div>
     </div>
+
+    <!-- 月別推移 -->
     <div class="card">
       <div class="card-title">月別支出推移</div>
       <div class="trend-wrap"><canvas id="barChart"></canvas></div>
@@ -217,7 +273,10 @@ function renderGraph() {
 
 function buildTrend() {
   const months = [...new Set(allData.map(r => r.month))].sort().slice(-6);
-  return months.map(m => ({ month: m, total: allData.filter(r => r.month === m && r.amount > 0).reduce((s, r) => s + r.amount, 0) }));
+  return months.map(m => ({
+    month: m,
+    total: allData.filter(r => r.month === m && r.amount > 0 && r.category !== '収入').reduce((s, r) => s + r.amount, 0)
+  }));
 }
 
 function renderHistory() {
@@ -225,20 +284,24 @@ function renderHistory() {
   if (sorted.length === 0) { document.getElementById('historyContent').innerHTML = '<div class="loading">記録がありません</div>'; return; }
 
   document.getElementById('historyContent').innerHTML = sorted.map(r => {
+    const isIncome = r.category === '収入';
     const emoji = CAT_EMOJI[r.category] || '📌';
     const whoLabel = r.uid === MY_UID ? '<span class="history-who who-kazu">👤 かず</span>' : r.uid === WIFE_UID ? '<span class="history-who who-wife">👤 もも</span>' : '';
     const memo = (r.memo || '').replace(/'/g, "\\'");
     const cat  = (r.category || '').replace(/'/g, "\\'");
+    const displayAmount = isIncome ? Math.abs(r.amount) : r.amount;
+    const amountClass = isIncome ? 'history-amount income' : 'history-amount';
+    const amountSign = isIncome ? '+¥' : '¥';
     return `
     <div class="history-item" id="row-${r.rowIndex}">
       <div class="history-header">
-        <span class="history-cat">${emoji} ${r.category}</span>
-        <span class="history-amount">¥${r.amount.toLocaleString()}</span>
+        <span class="history-cat">${emoji} ${r.category}${r.memo && isIncome ? ' · ' + r.memo : ''}</span>
+        <span class="${amountClass}">${amountSign}${displayAmount.toLocaleString()}</span>
       </div>
-      <div class="history-meta">${r.date}${r.memo ? ' · ' + r.memo : ''}</div>
+      <div class="history-meta">${r.date}${r.memo && !isIncome ? ' · ' + r.memo : ''}</div>
       ${whoLabel}
       <div class="history-actions">
-        <button class="btn-edit" onclick="openEdit(${r.rowIndex}, '${r.date}', '${cat}', ${r.amount}, '${memo}')">編集</button>
+        <button class="btn-edit" onclick="openEdit(${r.rowIndex}, '${r.date}', '${cat}', ${displayAmount}, '${memo}')">編集</button>
         <button class="btn-delete" onclick="deleteRecord(${r.rowIndex})">削除</button>
       </div>
     </div>`;
