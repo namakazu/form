@@ -166,16 +166,21 @@ function jsonp(url) {
 
 async function loadData() {
   try {
-    const [reportJson, balanceJson] = await Promise.all([
-      jsonp(GAS_URL + '?action=getReport'),
-      jsonp(GAS_URL + '?action=getBalance')
-    ]);
+    const reportJson = await jsonp(GAS_URL + '?action=getReport');
     allData = reportJson.data || [];
-    balanceData = balanceJson;
     setupMonths();
     renderHistory();
+
+    // 残額は後から取得（遅延させる）
+    try {
+      balanceData = await jsonp(GAS_URL + '?action=getBalance');
+      renderGraph(); // 残額データが来たら再描画
+    } catch(e) {
+      console.log('balance load failed:', e);
+    }
   } catch(e) {
     document.getElementById('graphContent').innerHTML = '<div class="error">データの読み込みに失敗しました。</div>';
+    document.getElementById('historyContent').innerHTML = '<div class="error">データの読み込みに失敗しました。</div>';
   }
 }
 
