@@ -238,11 +238,11 @@ function renderGraph() {
       </div>
       <div class="balance-detail">
         <div class="balance-detail-item">
-          <div class="balance-detail-label">👤 かずの支出</div>
+          <div class="balance-detail-label">👤 夫の支出</div>
           <div class="balance-detail-value">¥${b.kazuExpense.toLocaleString()}</div>
         </div>
         <div class="balance-detail-item">
-          <div class="balance-detail-label">👤 ももの支出</div>
+          <div class="balance-detail-label">👤 妻の支出</div>
           <div class="balance-detail-value">¥${b.momoExpense.toLocaleString()}</div>
         </div>
       </div>
@@ -330,7 +330,7 @@ function renderHistory() {
   document.getElementById('historyContent').innerHTML = sorted.map(r => {
     const isIncome = r.category === '収入';
     const emoji = CAT_EMOJI[r.category] || '📌';
-    const whoLabel = r.uid === MY_UID ? '<span class="history-who who-kazu">👤 かず</span>' : r.uid === WIFE_UID ? '<span class="history-who who-wife">👤 もも</span>' : '';
+    const whoLabel = r.uid === MY_UID ? '<span class="history-who who-kazu">👤 夫</span>' : r.uid === WIFE_UID ? '<span class="history-who who-wife">👤 妻</span>' : '';
     const memo = (r.memo || '').replace(/'/g, "\\'");
     const cat  = (r.category || '').replace(/'/g, "\\'");
     const displayAmount = Math.abs(r.amount);
