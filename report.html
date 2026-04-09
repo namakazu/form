@@ -16,19 +16,31 @@
     .card{background:#fff;border-radius:12px;padding:16px;margin-bottom:16px;border:0.5px solid #e0e0e0}
     .card-title{font-size:13px;font-weight:500;color:#555;margin-bottom:12px}
 
+    /* 残額ボックス */
+    .balance-box{border-radius:12px;padding:16px;margin-bottom:16px;background:linear-gradient(135deg,#1a5fd8,#2a73ff);color:#fff}
+    .balance-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+    .balance-label{font-size:12px;opacity:0.8}
+    .balance-amount{font-size:28px;font-weight:700;margin-top:2px}
+    .balance-perday{font-size:13px;opacity:0.85;margin-top:4px}
+    .balance-detail{display:flex;gap:16px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.2)}
+    .balance-detail-item{flex:1}
+    .balance-detail-label{font-size:11px;opacity:0.75;margin-bottom:2px}
+    .balance-detail-value{font-size:13px;font-weight:600}
+
     /* 収支サマリ */
-    .summary-box{border-radius:12px;padding:16px;margin-bottom:16px;background:#fff;border:0.5px solid #e0e0e0}
-    .summary-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:0.5px solid #f0f0f0}
+    .summary-box{background:#fff;border-radius:12px;padding:16px;margin-bottom:16px;border:0.5px solid #e0e0e0}
+    .summary-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:0.5px solid #f0f0f0}
     .summary-row:last-child{border-bottom:none;padding-top:10px;margin-top:4px}
     .summary-label{font-size:13px;color:#555}
     .summary-amount{font-size:15px;font-weight:600}
+    .summary-sub{font-size:11px;color:#888;margin-top:2px}
     .income-color{color:#00a86b}
     .expense-color{color:#2a73ff}
-    .balance-plus{color:#00a86b;font-size:17px}
-    .balance-minus{color:#b00020;font-size:17px}
+    .balance-plus{color:#00a86b;font-size:17px;font-weight:700}
+    .balance-minus{color:#b00020;font-size:17px;font-weight:700}
     .summary-divider{border:none;border-top:1.5px solid #e0e0e0;margin:4px 0}
 
-    /* グラフタブ */
+    /* グラフ */
     .total-box{background:#2a73ff;border-radius:12px;padding:16px;margin-bottom:16px;color:#fff}
     .total-label{font-size:12px;opacity:0.8;margin-bottom:4px}
     .total-amount{font-size:28px;font-weight:600}
@@ -46,7 +58,7 @@
     .chart-wrap{position:relative;height:220px;margin:8px 0}
     .trend-wrap{position:relative;height:200px;margin:8px 0}
 
-    /* 履歴タブ */
+    /* 履歴 */
     .history-item{background:#fff;border-radius:10px;padding:12px 14px;margin-bottom:8px;border:0.5px solid #e0e0e0}
     .history-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
     .history-cat{font-size:13px;font-weight:500;color:#333}
@@ -60,7 +72,7 @@
     .btn-edit{padding:5px 14px;border:1.5px solid #2a73ff;border-radius:6px;background:#fff;color:#2a73ff;font-size:12px;cursor:pointer;font-weight:500}
     .btn-delete{padding:5px 14px;border:1.5px solid #ffcccc;border-radius:6px;background:#fff;color:#b00020;font-size:12px;cursor:pointer}
 
-    /* 編集モーダル */
+    /* モーダル */
     .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:100}
     .modal-overlay.show{display:flex}
     .modal{background:#fff;border-radius:16px;padding:20px;width:90%;max-width:400px}
@@ -135,6 +147,7 @@ const CAT_EMOJI = {
 };
 
 let allData = [];
+let balanceData = null;
 let selectedMonth = '';
 let pieChart = null;
 let barChart = null;
@@ -153,13 +166,16 @@ function jsonp(url) {
 
 async function loadData() {
   try {
-    const json = await jsonp(GAS_URL + '?action=getReport');
-    allData = json.data || [];
+    const [reportJson, balanceJson] = await Promise.all([
+      jsonp(GAS_URL + '?action=getReport'),
+      jsonp(GAS_URL + '?action=getBalance')
+    ]);
+    allData = reportJson.data || [];
+    balanceData = balanceJson;
     setupMonths();
     renderHistory();
   } catch(e) {
     document.getElementById('graphContent').innerHTML = '<div class="error">データの読み込みに失敗しました。</div>';
-    document.getElementById('historyContent').innerHTML = '<div class="error">データの読み込みに失敗しました。</div>';
   }
 }
 
@@ -189,49 +205,73 @@ function selectMonth(m) {
 }
 
 function renderGraph() {
-  // 収入・支出を分離
   const incomeRows  = allData.filter(r => r.month === selectedMonth && r.category === '収入');
   const expenseRows = allData.filter(r => r.month === selectedMonth && r.amount > 0 && r.category !== '収入');
-
-  // 収入合計（マイナス値で保存されているので絶対値）
   const totalIncome  = incomeRows.reduce((s, r) => s + Math.abs(r.amount), 0);
   const totalExpense = expenseRows.reduce((s, r) => s + r.amount, 0);
   const balance      = totalIncome - totalExpense;
+  const balanceSign  = balance >= 0 ? '' : '-';
   const balanceClass = balance >= 0 ? 'balance-plus' : 'balance-minus';
-  const balanceSign  = balance >= 0 ? '+' : '';
 
-  // カテゴリ別集計（支出のみ）
+  // 残額ボックス（今月選択時のみ詳細表示）
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}/${('0'+(now.getMonth()+1)).slice(-2)}`;
+  const isCurrentMonth = selectedMonth === currentMonth;
+
+  let balanceBoxHtml = '';
+  if (isCurrentMonth && balanceData) {
+    const b = balanceData;
+    const perDaySign = b.perDay >= 0 ? '' : '-';
+    balanceBoxHtml = `
+    <div class="balance-box">
+      <div class="balance-top">
+        <div>
+          <div class="balance-label">今月の残額</div>
+          <div class="balance-amount">${balanceSign}¥${Math.abs(b.balance).toLocaleString()}</div>
+          <div class="balance-perday">残り${b.diffDays}日 → ${perDaySign}¥${Math.abs(b.perDay).toLocaleString()}/日</div>
+        </div>
+      </div>
+      <div class="balance-detail">
+        <div class="balance-detail-item">
+          <div class="balance-detail-label">👤 かずの支出</div>
+          <div class="balance-detail-value">¥${b.kazuExpense.toLocaleString()}</div>
+        </div>
+        <div class="balance-detail-item">
+          <div class="balance-detail-label">👤 ももの支出</div>
+          <div class="balance-detail-value">¥${b.momoExpense.toLocaleString()}</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
   const cats = {};
   expenseRows.forEach(r => { cats[r.category] = (cats[r.category] || 0) + r.amount; });
   const sorted = Object.entries(cats).sort((a, b) => b[1] - a[1]);
   const trendData = buildTrend();
 
   document.getElementById('graphContent').innerHTML = `
-    <!-- 収支サマリ -->
+    ${balanceBoxHtml}
+
     <div class="summary-box">
       <div class="summary-row">
-        <span class="summary-label">💰 収入</span>
+        <div>
+          <div class="summary-label">💰 収入</div>
+        </div>
         <span class="summary-amount income-color">¥${totalIncome.toLocaleString()}</span>
       </div>
       <div class="summary-row">
-        <span class="summary-label">💴 支出</span>
+        <div>
+          <div class="summary-label">💴 支出</div>
+        </div>
         <span class="summary-amount expense-color">¥${totalExpense.toLocaleString()}</span>
       </div>
       <hr class="summary-divider">
       <div class="summary-row">
         <span class="summary-label" style="font-weight:600">収支</span>
-        <span class="${balanceClass}">${balanceSign}¥${balance.toLocaleString()}</span>
+        <span class="${balanceClass}">${balanceSign}¥${Math.abs(balance).toLocaleString()}</span>
       </div>
     </div>
 
-    <!-- 支出合計 -->
-    <div class="total-box">
-      <div class="total-label">今月の支出合計</div>
-      <div class="total-amount">¥${totalExpense.toLocaleString()}</div>
-      <div class="total-sub">${selectedMonth.replace('/', '年')}月</div>
-    </div>
-
-    <!-- カテゴリ別内訳 -->
     <div class="card">
       <div class="card-title">カテゴリ別内訳（支出）</div>
       <div class="chart-wrap"><canvas id="pieChart"></canvas></div>
@@ -249,7 +289,6 @@ function renderGraph() {
       </div>
     </div>
 
-    <!-- 月別推移 -->
     <div class="card">
       <div class="card-title">月別支出推移</div>
       <div class="trend-wrap"><canvas id="barChart"></canvas></div>
@@ -289,7 +328,7 @@ function renderHistory() {
     const whoLabel = r.uid === MY_UID ? '<span class="history-who who-kazu">👤 かず</span>' : r.uid === WIFE_UID ? '<span class="history-who who-wife">👤 もも</span>' : '';
     const memo = (r.memo || '').replace(/'/g, "\\'");
     const cat  = (r.category || '').replace(/'/g, "\\'");
-    const displayAmount = isIncome ? Math.abs(r.amount) : r.amount;
+    const displayAmount = Math.abs(r.amount);
     const amountClass = isIncome ? 'history-amount income' : 'history-amount';
     const amountSign = isIncome ? '+¥' : '¥';
     return `
