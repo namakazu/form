@@ -11,14 +11,15 @@
     .wrap{max-width:480px;margin:0 auto;padding:16px 12px 40px}
     h1{font-size:17px;font-weight:600;margin-bottom:16px;color:#1a1a1a}
     .tabs{display:flex;margin-bottom:16px;border-radius:10px;overflow:hidden;border:1.5px solid #e0e0e0;background:#fff}
-    .tab{flex:1;padding:10px;text-align:center;font-size:14px;cursor:pointer;color:#888;background:#fff;border:none}
+    .tab{flex:1;padding:10px;text-align:center;font-size:13px;cursor:pointer;color:#888;background:#fff;border:none}
     .tab.active{background:#2a73ff;color:#fff;font-weight:600}
     .tab.income-active{background:#00a86b;color:#fff;font-weight:600}
+    .tab.fixed-active{background:#ff6b35;color:#fff;font-weight:600}
     .card{background:#fff;border-radius:12px;padding:16px;margin-bottom:16px;border:0.5px solid #e0e0e0}
     .field{margin-bottom:14px}
     label{display:block;font-size:12px;color:#666;margin-bottom:6px;font-weight:500}
     input,select,textarea{width:100%;font-size:16px;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;background:#fff}
-    input:focus,select:focus,textarea:focus{outline:none;border-color:#2a73ff}
+    input:focus,select:focus{outline:none;border-color:#2a73ff}
     .cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px}
     .cat-btn{padding:10px 4px;border:1.5px solid #e0e0e0;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;text-align:center;color:#555}
     .cat-btn.selected{border-color:#2a73ff;background:#eef3ff;color:#2a73ff;font-weight:600}
@@ -27,10 +28,45 @@
     .btn-submit{width:100%;padding:14px;border:none;border-radius:10px;font-size:16px;font-weight:600;color:#fff;cursor:pointer;margin-top:4px}
     .btn-expense{background:#2a73ff}
     .btn-income{background:#00a86b}
+    .btn-fixed{background:#ff6b35}
     .btn-submit:disabled{opacity:.6;cursor:not-allowed}
     .msg{font-size:13px;margin-top:10px;text-align:center;padding:8px;border-radius:8px}
     .msg.ok{background:#e6f7f0;color:#00a86b}
     .msg.err{background:#fff0f0;color:#b00020}
+
+    /* 固定費リスト */
+    .fixed-item{background:#fff;border-radius:10px;padding:12px 14px;margin-bottom:8px;border:0.5px solid #e0e0e0}
+    .fixed-header{display:flex;justify-content:space-between;align-items:center}
+    .fixed-name{font-size:14px;font-weight:600;color:#333}
+    .fixed-amount{font-size:14px;font-weight:600;color:#ff6b35}
+    .fixed-meta{font-size:12px;color:#888;margin-top:4px}
+    .fixed-actions{display:flex;gap:6px;margin-top:8px}
+    .btn-edit-small{padding:4px 12px;border:1.5px solid #2a73ff;border-radius:6px;background:#fff;color:#2a73ff;font-size:12px;cursor:pointer}
+    .btn-delete-small{padding:4px 12px;border:1.5px solid #ffcccc;border-radius:6px;background:#fff;color:#b00020;font-size:12px;cursor:pointer}
+    .btn-add{width:100%;padding:12px;border:2px dashed #e0e0e0;border-radius:10px;background:#fff;color:#888;font-size:14px;cursor:pointer;margin-bottom:16px}
+    .btn-add:hover{border-color:#ff6b35;color:#ff6b35}
+
+    /* 固定費フォームモーダル */
+    .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:100}
+    .modal-overlay.show{display:flex}
+    .modal{background:#fff;border-radius:16px;padding:20px;width:90%;max-width:400px}
+    .modal-title{font-size:16px;font-weight:600;margin-bottom:16px}
+    .modal-field{margin-bottom:12px}
+    .modal-field label{display:block;font-size:12px;color:#888;margin-bottom:4px}
+    .modal-field input,.modal-field select{width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:15px;background:#fff}
+    .modal-actions{display:flex;gap:8px;margin-top:16px}
+    .btn-save{flex:1;padding:12px;border:none;border-radius:8px;background:#ff6b35;color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+    .btn-cancel{flex:1;padding:12px;border:1.5px solid #e0e0e0;border-radius:8px;background:#fff;color:#555;font-size:15px;cursor:pointer}
+    .toggle-wrap{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px}
+    .toggle-label{font-size:15px;color:#333}
+    .toggle{width:44px;height:24px;border-radius:12px;border:none;cursor:pointer;position:relative;transition:background .2s}
+    .toggle.on{background:#00a86b}
+    .toggle.off{background:#ccc}
+    .toggle::after{content:'';position:absolute;width:18px;height:18px;background:#fff;border-radius:50%;top:3px;transition:left .2s}
+    .toggle.on::after{left:23px}
+    .toggle.off::after{left:3px}
+
+    .loading{text-align:center;padding:20px;color:#888;font-size:14px}
     .hidden{display:none}
   </style>
 </head>
@@ -39,8 +75,9 @@
   <h1>📒 こてらん家のお金</h1>
 
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('expense')">💴 支出を記録</button>
-    <button class="tab" onclick="switchTab('income')">💰 収入を記録</button>
+    <button class="tab active" onclick="switchTab('expense')">💴 支出</button>
+    <button class="tab" onclick="switchTab('income')">💰 収入</button>
+    <button class="tab" onclick="switchTab('fixed')">📋 固定費</button>
   </div>
 
   <!-- 支出タブ -->
@@ -90,6 +127,50 @@
       <div id="incomeMsg" class="msg hidden"></div>
     </div>
   </div>
+
+  <!-- 固定費タブ -->
+  <div id="fixedTab" class="hidden">
+    <button class="btn-add" onclick="openFixedModal()">＋ 固定費を追加する</button>
+    <div id="fixedList"><div class="loading">読み込み中...</div></div>
+  </div>
+</div>
+
+<!-- 固定費フォームモーダル -->
+<div class="modal-overlay" id="fixedModal">
+  <div class="modal">
+    <div class="modal-title" id="fixedModalTitle">📋 固定費を追加</div>
+    <div class="modal-field">
+      <label>名前</label>
+      <input type="text" id="fixedName" placeholder="例: 家賃、Netflix">
+    </div>
+    <div class="modal-field">
+      <label>カテゴリ</label>
+      <select id="fixedCategory">
+        <option>食費</option><option>外食</option><option>交通</option>
+        <option>交際</option><option>日用品</option><option>娯楽</option>
+        <option>光熱費・通信費</option><option>その他</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>金額（円）</label>
+      <input type="number" id="fixedAmount" inputmode="numeric" placeholder="例: 80000">
+    </div>
+    <div class="modal-field">
+      <label>毎月何日に記録するか</label>
+      <input type="number" id="fixedDay" inputmode="numeric" placeholder="例: 1（毎月1日）" min="1" max="28">
+    </div>
+    <div class="modal-field">
+      <label>有効／無効</label>
+      <div class="toggle-wrap">
+        <span class="toggle-label">自動記録する</span>
+        <button class="toggle on" id="fixedToggle" onclick="toggleFixed()"></button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeFixedModal()">キャンセル</button>
+      <button class="btn-save" onclick="saveFixed()">保存する</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -97,37 +178,36 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbzrfL8YFHZFjBvyaliUkgkJ
 const LIFF_ID = '2008067708-MnnJ68ov';
 
 const CATS = [
-  {key:'食費', emoji:'🍜'},
-  {key:'交通', emoji:'🚃'},
-  {key:'交際', emoji:'🥂'},
+  {key:'食費',   emoji:'🍜'},
+  {key:'外食',   emoji:'🍽️'},
+  {key:'交通',   emoji:'🚃'},
+  {key:'交際',   emoji:'🥂'},
   {key:'日用品', emoji:'🛒'},
-  {key:'娯楽', emoji:'🎉'},
+  {key:'娯楽',   emoji:'🎉'},
   {key:'その他', emoji:'📦'},
 ];
 
 const INC_TYPES = [
-  {key:'給与', emoji:'💼'},
-  {key:'副業', emoji:'💻'},
-  {key:'賞与', emoji:'🎁'},
+  {key:'給与',   emoji:'💼'},
+  {key:'副業',   emoji:'💻'},
+  {key:'賞与',   emoji:'🎁'},
   {key:'その他', emoji:'📦'},
 ];
 
 let selectedCat = null;
 let selectedInc = null;
 let uid = '';
+let fixedEnabled = true;
+let editingFixedRow = null;
 
-// LIFF初期化
 async function init() {
   try {
     await liff.init({ liffId: LIFF_ID });
     if (!liff.isLoggedIn()) liff.login();
     try { uid = (await liff.getProfile()).userId; } catch(e) {}
     if (!uid) try { uid = liff.getDecodedIDToken()?.sub || ''; } catch(e) {}
-  } catch(e) {
-    console.log('LIFF init error:', e);
-  }
+  } catch(e) { console.log('LIFF init error:', e); }
 
-  // 今日の日付をセット
   const today = new Date();
   const yyyy = today.getFullYear();
   const mm = ('0'+(today.getMonth()+1)).slice(-2);
@@ -136,7 +216,6 @@ async function init() {
   document.getElementById('date').value = todayStr;
   document.getElementById('incDate').value = todayStr;
 
-  // カテゴリボタン生成
   const catGrid = document.getElementById('catGrid');
   CATS.forEach(c => {
     const btn = document.createElement('button');
@@ -151,7 +230,6 @@ async function init() {
     catGrid.appendChild(btn);
   });
 
-  // 収入種別ボタン生成
   const incGrid = document.getElementById('incGrid');
   INC_TYPES.forEach(t => {
     const btn = document.createElement('button');
@@ -166,7 +244,6 @@ async function init() {
     incGrid.appendChild(btn);
   });
 
-  // 金額入力でボタン活性化
   document.getElementById('amount').addEventListener('input', updateExpenseBtn);
   document.getElementById('incAmount').addEventListener('input', updateIncomeBtn);
 }
@@ -182,13 +259,17 @@ function updateIncomeBtn() {
 }
 
 function switchTab(tab) {
-  document.querySelectorAll('.tab').forEach((t, i) => {
-    t.classList.remove('active', 'income-active');
-    if (i === 0 && tab === 'expense') t.classList.add('active');
-    if (i === 1 && tab === 'income') t.classList.add('income-active');
-  });
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active', 'income-active', 'fixed-active'));
+  const tabs = document.querySelectorAll('.tab');
+  if (tab === 'expense') tabs[0].classList.add('active');
+  if (tab === 'income')  tabs[1].classList.add('income-active');
+  if (tab === 'fixed')   tabs[2].classList.add('fixed-active');
+
   document.getElementById('expenseTab').classList.toggle('hidden', tab !== 'expense');
   document.getElementById('incomeTab').classList.toggle('hidden', tab !== 'income');
+  document.getElementById('fixedTab').classList.toggle('hidden', tab !== 'fixed');
+
+  if (tab === 'fixed') loadFixedCosts();
 }
 
 function showMsg(id, text, isErr) {
@@ -202,14 +283,12 @@ async function submitExpense() {
   const amount = Number(document.getElementById('amount').value);
   const date = document.getElementById('date').value;
   const memo = document.getElementById('memo').value;
-
   if (!selectedCat || amount <= 0) return;
   btn.disabled = true;
   showMsg('expenseMsg', '送信中…', false);
 
   await fetch(GAS_URL, {
-    method: 'POST',
-    mode: 'no-cors',
+    method: 'POST', mode: 'no-cors',
     headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({ action: 'formAdd', uid, dateStr: date, amount, category: selectedCat, sub: '', memo })
   });
@@ -228,14 +307,12 @@ async function submitIncome() {
   const amount = Number(document.getElementById('incAmount').value);
   const date = document.getElementById('incDate').value;
   const memo = document.getElementById('incMemo').value;
-
   if (!selectedInc || amount <= 0) return;
   btn.disabled = true;
   showMsg('incomeMsg', '送信中…', false);
 
   await fetch(GAS_URL, {
-    method: 'POST',
-    mode: 'no-cors',
+    method: 'POST', mode: 'no-cors',
     headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({ action: 'formAdd', uid, dateStr: date, amount: -amount, category: '収入', sub: selectedInc, memo })
   });
@@ -247,6 +324,125 @@ async function submitIncome() {
   document.getElementById('incMemo').value = '';
   btn.disabled = true;
   setTimeout(() => { try { liff.closeWindow(); } catch(e) {} }, 1200);
+}
+
+// 固定費一覧読み込み
+function loadFixedCosts() {
+  const cb = 'cb_' + Date.now();
+  window[cb] = (json) => {
+    delete window[cb];
+    renderFixedList(json.data || []);
+  };
+  const s = document.createElement('script');
+  s.src = GAS_URL + '?action=getFixedCosts&callback=' + cb;
+  s.onerror = () => { document.getElementById('fixedList').innerHTML = '<div class="loading">読み込みに失敗しました</div>'; };
+  document.head.appendChild(s);
+}
+
+function renderFixedList(list) {
+  if (list.length === 0) {
+    document.getElementById('fixedList').innerHTML = '<div class="loading">固定費がまだ登録されていません</div>';
+    return;
+  }
+  document.getElementById('fixedList').innerHTML = list.map(item => `
+    <div class="fixed-item">
+      <div class="fixed-header">
+        <span class="fixed-name">${item.name}</span>
+        <span class="fixed-amount">¥${Number(item.amount).toLocaleString()}</span>
+      </div>
+      <div class="fixed-meta">${item.category} · 毎月${item.day}日 · ${item.enabled ? '✅ 有効' : '⏸ 無効'}</div>
+      <div class="fixed-actions">
+        <button class="btn-edit-small" onclick="openFixedModal(${item.rowIndex})">編集</button>
+        <button class="btn-delete-small" onclick="deleteFixed(${item.rowIndex})">削除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// 固定費モーダル
+function openFixedModal(rowIndex) {
+  editingFixedRow = rowIndex || null;
+  document.getElementById('fixedModalTitle').textContent = rowIndex ? '📋 固定費を編集' : '📋 固定費を追加';
+  document.getElementById('fixedName').value = '';
+  document.getElementById('fixedCategory').value = 'その他';
+  document.getElementById('fixedAmount').value = '';
+  document.getElementById('fixedDay').value = '1';
+  fixedEnabled = true;
+  updateToggle();
+
+  // 編集の場合は既存データを取得
+  if (rowIndex) {
+    const cb = 'cb_' + Date.now();
+    window[cb] = (json) => {
+      delete window[cb];
+      const item = (json.data || []).find(r => r.rowIndex === rowIndex);
+      if (item) {
+        document.getElementById('fixedName').value = item.name;
+        document.getElementById('fixedCategory').value = item.category;
+        document.getElementById('fixedAmount').value = item.amount;
+        document.getElementById('fixedDay').value = item.day;
+        fixedEnabled = item.enabled;
+        updateToggle();
+      }
+    };
+    const s = document.createElement('script');
+    s.src = GAS_URL + '?action=getFixedCosts&callback=' + cb;
+    document.head.appendChild(s);
+  }
+
+  document.getElementById('fixedModal').classList.add('show');
+}
+
+function closeFixedModal() {
+  document.getElementById('fixedModal').classList.remove('show');
+  editingFixedRow = null;
+}
+
+function toggleFixed() {
+  fixedEnabled = !fixedEnabled;
+  updateToggle();
+}
+
+function updateToggle() {
+  const btn = document.getElementById('fixedToggle');
+  btn.className = 'toggle ' + (fixedEnabled ? 'on' : 'off');
+}
+
+async function saveFixed() {
+  const name     = document.getElementById('fixedName').value.trim();
+  const category = document.getElementById('fixedCategory').value;
+  const amount   = Number(document.getElementById('fixedAmount').value);
+  const day      = Number(document.getElementById('fixedDay').value);
+
+  if (!name || amount <= 0 || day < 1 || day > 28) {
+    alert('名前・金額・記録日（1〜28）を正しく入力してください');
+    return;
+  }
+
+  await fetch(GAS_URL, {
+    method: 'POST', mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({
+      action: editingFixedRow ? 'editFixedCost' : 'addFixedCost',
+      rowIndex: editingFixedRow,
+      name, category, amount, day, enabled: fixedEnabled
+    })
+  });
+
+  closeFixedModal();
+  setTimeout(() => loadFixedCosts(), 1000);
+  alert(editingFixedRow ? '✅ 更新しました！' : '✅ 追加しました！');
+}
+
+async function deleteFixed(rowIndex) {
+  if (!confirm('この固定費を削除しますか？')) return;
+  await fetch(GAS_URL, {
+    method: 'POST', mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'deleteFixedCost', rowIndex })
+  });
+  setTimeout(() => loadFixedCosts(), 1000);
+  alert('✅ 削除しました！');
 }
 
 document.addEventListener('DOMContentLoaded', init);
