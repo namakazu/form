@@ -7,7 +7,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;background:#f6f7f9;min-height:100vh}
+    body{font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;background:#f6f7f9;min-height:100vh;overflow-y:scroll}
     .wrap{max-width:480px;margin:0 auto;padding:16px 12px 40px}
     h1{font-size:17px;font-weight:600;margin-bottom:16px;color:#1a1a1a}
     .tabs{display:flex;margin-bottom:16px;border-radius:10px;overflow:hidden;border:1.5px solid #e0e0e0;background:#fff}
@@ -354,7 +354,8 @@ function renderHistory() {
 
 function openEdit(rowIndex, date, category, amount, memo) {
   editingRowIndex = rowIndex;
-  document.getElementById('editDate').value = date;
+  // スラッシュ区切り（2026/04/15）をハイフン区切り（2026-04-15）に変換してinput[type=date]に渡す
+  document.getElementById('editDate').value = date.replace(/\//g, '-');
   document.getElementById('editCategory').value = category;
   document.getElementById('editAmount').value = amount;
   document.getElementById('editMemo').value = memo;
