@@ -235,18 +235,27 @@ function jsonp(url) {
 
 async function loadData() {
   try {
-    const reportJson = await jsonp(GAS_URL + '?action=getReport');
-    allData = reportJson.data || [];
+    // ここから変更：2つのAPIを並列取得し、両方揃ってから1回だけ描画する
+    const [reportResult, balanceResult] = await Promise.allSettled([
+      jsonp(GAS_URL + '?action=getReport'),
+      jsonp(GAS_URL + '?action=getBalance')
+    ]);
+
+    if (reportResult.status === 'fulfilled') {
+      allData = reportResult.value.data || [];
+    } else {
+      throw reportResult.reason; // レポート取得失敗は致命的エラーとして扱う
+    }
+
+    // 残額は取得できなくてもグラフ表示は継続（balanceDataはnullのまま）
+    if (balanceResult.status === 'fulfilled') {
+      balanceData = balanceResult.value;
+    }
+
+    // 両方揃った状態で1回だけ描画
     setupMonths();
     renderHistory();
-
-    // 残額は後から取得（遅延させる）
-    try {
-      balanceData = await jsonp(GAS_URL + '?action=getBalance');
-      renderGraph(); // 残額データが来たら再描画
-    } catch(e) {
-      console.log('balance load failed:', e);
-    }
+    // ここまで変更
   } catch(e) {
     document.getElementById('graphContent').innerHTML = '<div class="error">データの読み込みに失敗しました。</div>';
     document.getElementById('historyContent').innerHTML = '<div class="error">データの読み込みに失敗しました。</div>';
