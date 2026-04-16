@@ -65,9 +65,24 @@
     .cal-header.sat{color:#1e88e5}
     .cal-cell{background:#fafafa;border-radius:6px;padding:5px 3px;min-height:50px;border:0.5px solid #efefef;text-align:center}
     .cal-cell.empty{background:transparent;border-color:transparent}
-    /* ここから追加：支出ありセルはタップ可能に見せる */
-    .cal-cell.has-expense{background:#eef3ff;border-color:#c7d9ff;cursor:pointer}
-    .cal-cell.has-expense:active{background:#d8e8ff}
+    /* ここから変更：支出ありセルはタップ可能に、色は誰が使ったかで分ける */
+    .cal-cell.has-expense{cursor:pointer}
+    .cal-cell.has-expense:active{opacity:0.75}
+    /* 夫のみ→青、妻のみ→ピンク、両方→左右で色分け */
+    .cal-cell.kazu-only{background:#eef3ff;border-color:#c7d9ff}
+    .cal-cell.momo-only{background:#fff0f5;border-color:#ffc8dc}
+    .cal-cell.both-spent{background:linear-gradient(to right,#eef3ff 50%,#fff0f5 50%);border-color:#d8c0f0}
+    .cal-amount.kazu-color{color:#2a73ff}
+    .cal-amount.momo-color{color:#d4537e}
+    .cal-amount.both-color{color:#555;font-weight:700}
+    /* ここまで変更 */
+
+    /* ここから追加：グラフタブの人物フィルターボタン */
+    .person-filter{display:flex;gap:6px;margin-bottom:14px}
+    .person-btn{flex:1;padding:7px 0;border:1.5px solid #e0e0e0;border-radius:8px;background:#fff;font-size:12px;cursor:pointer;color:#888;font-weight:500}
+    .person-btn.pf-all{border-color:#555;background:#555;color:#fff}
+    .person-btn.pf-kazu{border-color:#2a73ff;background:#2a73ff;color:#fff}
+    .person-btn.pf-momo{border-color:#d4537e;background:#d4537e;color:#fff}
     /* ここまで追加 */
     .cal-cell.today{border:2px solid #2a73ff}
 
@@ -200,6 +215,9 @@ const CAT_EMOJI = {
 let allData = [];
 let balanceData = null;
 let selectedMonth = '';
+// ここから追加：グラフタブの人物フィルター（'all' / 'kazu' / 'momo'）
+let selectedPerson = 'all';
+// ここまで追加
 let pieChart = null;
 let barChart = null;
 let editingRowIndex = null;
@@ -274,9 +292,23 @@ function selectMonth(m) {
   }
 }
 
+// ここから追加：グラフタブの人物フィルター切り替え
+function setPersonFilter(p) {
+  selectedPerson = p;
+  renderGraph();
+}
+// ここまで追加
+
 function renderGraph() {
   const incomeRows  = allData.filter(r => r.month === selectedMonth && r.category === '収入');
-  const expenseRows = allData.filter(r => r.month === selectedMonth && r.amount > 0 && r.category !== '収入');
+  // ここから変更：selectedPersonに応じて支出データを絞り込む
+  const expenseRows = allData.filter(r => {
+    if (r.month !== selectedMonth || r.amount <= 0 || r.category === '収入') return false;
+    if (selectedPerson === 'kazu') return r.uid === MY_UID;
+    if (selectedPerson === 'momo') return r.uid === WIFE_UID;
+    return true; // 'all'
+  });
+  // ここまで変更
   const totalIncome  = incomeRows.reduce((s, r) => s + Math.abs(r.amount), 0);
   const totalExpense = expenseRows.reduce((s, r) => s + r.amount, 0);
   const balance      = totalIncome - totalExpense;
@@ -319,7 +351,20 @@ function renderGraph() {
   const sorted = Object.entries(cats).sort((a, b) => b[1] - a[1]);
   const trendData = buildTrend();
 
+  // ここから追加：人物フィルターボタン（グラフエリアの上部に表示）
+  const pfAll  = selectedPerson === 'all'  ? 'person-btn pf-all'  : 'person-btn';
+  const pfKazu = selectedPerson === 'kazu' ? 'person-btn pf-kazu' : 'person-btn';
+  const pfMomo = selectedPerson === 'momo' ? 'person-btn pf-momo' : 'person-btn';
+  const personFilterHtml = `
+    <div class="person-filter">
+      <button class="${pfAll}"  onclick="setPersonFilter('all')">👥 全員</button>
+      <button class="${pfKazu}" onclick="setPersonFilter('kazu')">👤 夫</button>
+      <button class="${pfMomo}" onclick="setPersonFilter('momo')">👤 妻</button>
+    </div>`;
+  // ここまで追加
+
   document.getElementById('graphContent').innerHTML = `
+    ${personFilterHtml}
     ${balanceBoxHtml}
 
     <div class="summary-box">
@@ -395,15 +440,18 @@ function renderCalendar() {
   // 年・月を数値で取得（例: "2026/04" → year=2026, month=4）
   const [year, month] = selectedMonth.split('/').map(Number);
 
-  // 支出データを日ごとに集計（収入・支給は除外）
-  const dayTotals = {};
+  // ここから変更：夫・妻それぞれの日別合計を別々に集計
+  const dayKazu = {};  // 夫の日別合計
+  const dayMomo = {};  // 妻の日別合計
   allData
     .filter(r => r.month === selectedMonth && r.amount > 0 && r.category !== '収入')
     .forEach(r => {
       // 日付文字列から「日」部分を取得（"2026/04/15" → 15）
       const day = parseInt(r.date.split('/')[2]);
-      dayTotals[day] = (dayTotals[day] || 0) + r.amount;
+      if (r.uid === MY_UID)   dayKazu[day] = (dayKazu[day] || 0) + r.amount;
+      if (r.uid === WIFE_UID) dayMomo[day] = (dayMomo[day] || 0) + r.amount;
     });
+  // ここまで変更
 
   // カレンダーの計算
   const firstDayOfWeek = new Date(year, month - 1, 1).getDay(); // 月初の曜日（0=日）
@@ -431,23 +479,34 @@ function renderCalendar() {
   for (let d = 1; d <= lastDate; d++) {
     const dayOfWeek = (firstDayOfWeek + d - 1) % 7; // 0=日, 6=土
     const dateStr = `${year}/${('0'+month).slice(-2)}/${('0'+d).slice(-2)}`;
-    const amount = dayTotals[d] || 0;
+    // ここから変更：夫・妻それぞれの金額を取得して色クラスを決定
+    const kAmt = dayKazu[d] || 0;
+    const mAmt = dayMomo[d] || 0;
+    const amount = kAmt + mAmt;  // その日の合計
     const isToday = dateStr === todayStr;
     const hasExpense = amount > 0;
 
     const classes = ['cal-cell'];
-    if (hasExpense) classes.push('has-expense');
+    if (hasExpense) {
+      classes.push('has-expense');
+      // 誰が使ったかによってセルの色クラスを追加
+      if (kAmt > 0 && mAmt > 0) classes.push('both-spent');
+      else if (kAmt > 0)        classes.push('kazu-only');
+      else                      classes.push('momo-only');
+    }
     if (isToday) classes.push('today');
 
     // 曜日ごとに色を変える
     const dayClass = dayOfWeek === 0 ? 'sun' : dayOfWeek === 6 ? 'sat' : '';
 
+    // 金額テキストの色クラスも誰が使ったかで決定
+    const amtColorClass = (kAmt > 0 && mAmt > 0) ? 'both-color' : kAmt > 0 ? 'kazu-color' : 'momo-color';
+
     // 金額表示：1万円以上は「12k」形式でスペースを節約
     const amountHtml = hasExpense
-      ? `<div class="cal-amount">${amount >= 10000 ? Math.floor(amount/1000)+'k' : '¥'+amount.toLocaleString()}</div>`
+      ? `<div class="cal-amount ${amtColorClass}">${amount >= 10000 ? Math.floor(amount/1000)+'k' : '¥'+amount.toLocaleString()}</div>`
       : '';
 
-    // ここから変更：支出ありセルにタップで詳細モーダルを開くonclickを追加
     const clickAttr = hasExpense ? `onclick="openDayDetail('${dateStr}')"` : '';
     cells.push(`<div class="${classes.join(' ')}" ${clickAttr}>
       <div class="cal-day ${dayClass}">${d}</div>
@@ -479,10 +538,11 @@ function openDayDetail(dateStr) {
   const titleDate = `${parseInt(parts[1])}月${parseInt(parts[2])}日の支出`;
   document.getElementById('dayDetailTitle').textContent = titleDate;
 
-  // 夫・妻それぞれの合計を計算
+  // ここから変更：夫・妻それぞれの合計を計算（片方¥0でも必ず表示）
   const kazuTotal = rows.filter(r => r.uid === MY_UID).reduce((s, r) => s + r.amount, 0);
   const momoTotal = rows.filter(r => r.uid === WIFE_UID).reduce((s, r) => s + r.amount, 0);
   const dayTotal  = rows.reduce((s, r) => s + r.amount, 0);
+  // ここまで変更
 
   // 各明細行を生成（金額の大きい順に並べる）
   const itemsHtml = [...rows]
@@ -505,10 +565,8 @@ function openDayDetail(dateStr) {
       </div>`;
     }).join('');
 
-  // 夫・妻の内訳サマリ（両方ともデータがある場合のみ表示）
-  let summaryHtml = '';
-  if (kazuTotal > 0 && momoTotal > 0) {
-    summaryHtml = `
+  // ここから変更：夫・妻のサマリを常に表示（片方が¥0でも出す）
+  const summaryHtml = `
     <div style="display:flex;gap:8px;margin-top:10px;margin-bottom:2px">
       <div style="flex:1;background:#eef3ff;border-radius:8px;padding:8px;text-align:center">
         <div style="font-size:11px;color:#2a73ff;margin-bottom:2px">👤 夫</div>
@@ -519,7 +577,7 @@ function openDayDetail(dateStr) {
         <div style="font-size:13px;font-weight:600;color:#d4537e">¥${momoTotal.toLocaleString()}</div>
       </div>
     </div>`;
-  }
+  // ここまで変更
 
   document.getElementById('dayDetailBody').innerHTML = `
     ${itemsHtml}
