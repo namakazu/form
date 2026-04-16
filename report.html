@@ -58,6 +58,20 @@
     .chart-wrap{position:relative;height:220px;margin:8px 0}
     .trend-wrap{position:relative;height:200px;margin:8px 0}
 
+    /* カレンダー */
+    .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-top:4px}
+    .cal-header{text-align:center;font-size:11px;color:#888;padding:5px 0;font-weight:600}
+    .cal-header.sun{color:#e53935}
+    .cal-header.sat{color:#1e88e5}
+    .cal-cell{background:#fafafa;border-radius:6px;padding:5px 3px;min-height:50px;border:0.5px solid #efefef;text-align:center}
+    .cal-cell.empty{background:transparent;border-color:transparent}
+    .cal-cell.has-expense{background:#eef3ff;border-color:#c7d9ff}
+    .cal-cell.today{border:2px solid #2a73ff}
+    .cal-day{font-size:11px;color:#444;margin-bottom:3px;font-weight:500}
+    .cal-day.sun{color:#e53935}
+    .cal-day.sat{color:#1e88e5}
+    .cal-amount{font-size:10px;color:#2a73ff;font-weight:600;line-height:1.4;word-break:break-all}
+
     /* 履歴 */
     .history-item{background:#fff;border-radius:10px;padding:12px 14px;margin-bottom:8px;border:0.5px solid #e0e0e0}
     .history-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
@@ -95,13 +109,23 @@
   <h1>📊 家計簿レポート</h1>
   <div class="tabs">
     <button class="tab active" onclick="switchTab('graph')">📊 グラフ</button>
+    <button class="tab" onclick="switchTab('calendar')">📅 カレンダー</button>
     <button class="tab" onclick="switchTab('history')">📋 履歴</button>
   </div>
 
+  <!-- ここから追加：月選択を全タブ共通のエリアに移動 -->
+  <div class="month-selector" id="monthSelector"></div>
+  <!-- ここまで追加 -->
+
   <div id="graphTab">
-    <div class="month-selector" id="monthSelector"></div>
     <div id="graphContent"><div class="loading">読み込み中...</div></div>
   </div>
+
+  <!-- ここから追加：カレンダータブ -->
+  <div id="calendarTab" class="hidden">
+    <div id="calendarContent"><div class="loading">読み込み中...</div></div>
+  </div>
+  <!-- ここまで追加 -->
 
   <div id="historyTab" class="hidden">
     <div id="historyContent"><div class="loading">読み込み中...</div></div>
@@ -184,17 +208,27 @@ async function loadData() {
   }
 }
 
+// ここから変更：カレンダータブを含む3タブ切り替え
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach((t, i) => {
-    t.classList.toggle('active', (i === 0 && tab === 'graph') || (i === 1 && tab === 'history'));
+    t.classList.toggle('active',
+      (i === 0 && tab === 'graph') ||
+      (i === 1 && tab === 'calendar') ||
+      (i === 2 && tab === 'history')
+    );
   });
   document.getElementById('graphTab').classList.toggle('hidden', tab !== 'graph');
+  document.getElementById('calendarTab').classList.toggle('hidden', tab !== 'calendar');
   document.getElementById('historyTab').classList.toggle('hidden', tab !== 'history');
+  // カレンダータブに切り替えたときに描画
+  if (tab === 'calendar') renderCalendar();
 }
+// ここまで変更
 
 function setupMonths() {
   const months = [...new Set(allData.map(r => r.month))].sort().reverse().slice(0, 6);
   selectedMonth = months[0] || '';
+  // 月選択ボタンを共通エリアに描画（グラフ・カレンダー両方に反映）
   document.getElementById('monthSelector').innerHTML = months.map(m =>
     `<button class="month-btn ${m === selectedMonth ? 'active' : ''}" onclick="selectMonth('${m}')">${m.replace('/', '年')}月</button>`
   ).join('');
@@ -207,6 +241,10 @@ function selectMonth(m) {
     b.classList.toggle('active', b.textContent === m.replace('/', '年') + '月');
   });
   renderGraph();
+  // カレンダータブが表示中なら再描画
+  if (!document.getElementById('calendarTab').classList.contains('hidden')) {
+    renderCalendar();
+  }
 }
 
 function renderGraph() {
@@ -322,6 +360,83 @@ function buildTrend() {
     total: allData.filter(r => r.month === m && r.amount > 0 && r.category !== '収入').reduce((s, r) => s + r.amount, 0)
   }));
 }
+
+// ここから追加：カレンダー描画関数
+function renderCalendar() {
+  if (!selectedMonth) return;
+
+  // 年・月を数値で取得（例: "2026/04" → year=2026, month=4）
+  const [year, month] = selectedMonth.split('/').map(Number);
+
+  // 支出データを日ごとに集計（収入・支給は除外）
+  const dayTotals = {};
+  allData
+    .filter(r => r.month === selectedMonth && r.amount > 0 && r.category !== '収入')
+    .forEach(r => {
+      // 日付文字列から「日」部分を取得（"2026/04/15" → 15）
+      const day = parseInt(r.date.split('/')[2]);
+      dayTotals[day] = (dayTotals[day] || 0) + r.amount;
+    });
+
+  // カレンダーの計算
+  const firstDayOfWeek = new Date(year, month - 1, 1).getDay(); // 月初の曜日（0=日）
+  const lastDate = new Date(year, month, 0).getDate(); // 月末の日
+
+  // 今日の日付文字列を作成（今日セルを強調するため）
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}/${('0'+(now.getMonth()+1)).slice(-2)}/${('0'+now.getDate()).slice(-2)}`;
+
+  // 曜日ヘッダー
+  const headers = ['日','月','火','水','木','金','土'];
+  const headerHtml = headers.map((h, i) =>
+    `<div class="cal-header ${i===0?'sun':i===6?'sat':''}">${h}</div>`
+  ).join('');
+
+  // 空白セル（月初の曜日分）＋日付セル
+  const cells = [];
+
+  // 月初前の空白セルを埋める
+  for (let i = 0; i < firstDayOfWeek; i++) {
+    cells.push('<div class="cal-cell empty"></div>');
+  }
+
+  // 各日のセルを生成
+  for (let d = 1; d <= lastDate; d++) {
+    const dayOfWeek = (firstDayOfWeek + d - 1) % 7; // 0=日, 6=土
+    const dateStr = `${year}/${('0'+month).slice(-2)}/${('0'+d).slice(-2)}`;
+    const amount = dayTotals[d] || 0;
+    const isToday = dateStr === todayStr;
+    const hasExpense = amount > 0;
+
+    const classes = ['cal-cell'];
+    if (hasExpense) classes.push('has-expense');
+    if (isToday) classes.push('today');
+
+    // 曜日ごとに色を変える
+    const dayClass = dayOfWeek === 0 ? 'sun' : dayOfWeek === 6 ? 'sat' : '';
+
+    // 金額表示：1万円以上は「12k」形式でスペースを節約
+    const amountHtml = hasExpense
+      ? `<div class="cal-amount">${amount >= 10000 ? Math.floor(amount/1000)+'k' : '¥'+amount.toLocaleString()}</div>`
+      : '';
+
+    cells.push(`<div class="${classes.join(' ')}">
+      <div class="cal-day ${dayClass}">${d}</div>
+      ${amountHtml}
+    </div>`);
+  }
+
+  document.getElementById('calendarContent').innerHTML = `
+    <div class="card">
+      <div class="card-title">${year}年${month}月 支出カレンダー</div>
+      <div class="cal-grid">
+        ${headerHtml}
+        ${cells.join('')}
+      </div>
+    </div>
+  `;
+}
+// ここまで追加
 
 function renderHistory() {
   const sorted = [...allData].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 50);
