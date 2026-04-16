@@ -65,8 +65,25 @@
     .cal-header.sat{color:#1e88e5}
     .cal-cell{background:#fafafa;border-radius:6px;padding:5px 3px;min-height:50px;border:0.5px solid #efefef;text-align:center}
     .cal-cell.empty{background:transparent;border-color:transparent}
-    .cal-cell.has-expense{background:#eef3ff;border-color:#c7d9ff}
+    /* ここから追加：支出ありセルはタップ可能に見せる */
+    .cal-cell.has-expense{background:#eef3ff;border-color:#c7d9ff;cursor:pointer}
+    .cal-cell.has-expense:active{background:#d8e8ff}
+    /* ここまで追加 */
     .cal-cell.today{border:2px solid #2a73ff}
+
+    /* ここから追加：日別詳細モーダル */
+    .day-modal{background:#fff;border-radius:16px;padding:20px;width:90%;max-width:400px;max-height:80vh;display:flex;flex-direction:column}
+    .day-modal-body{overflow-y:auto;flex:1;margin:12px 0}
+    .day-detail-item{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:0.5px solid #f0f0f0}
+    .day-detail-item:last-child{border-bottom:none}
+    .day-detail-cat{flex:1;font-size:13px;color:#333;min-width:0}
+    .day-detail-cat-name{font-weight:500}
+    .day-detail-memo{font-size:11px;color:#888;margin-top:2px}
+    .day-detail-amount{font-size:14px;font-weight:600;color:#2a73ff;white-space:nowrap}
+    .day-detail-total{display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1.5px solid #e0e0e0;margin-top:4px}
+    .day-detail-total-label{font-size:13px;font-weight:600;color:#333}
+    .day-detail-total-amount{font-size:17px;font-weight:700;color:#2a73ff}
+    /* ここまで追加 */
     .cal-day{font-size:11px;color:#444;margin-bottom:3px;font-weight:500}
     .cal-day.sun{color:#e53935}
     .cal-day.sat{color:#1e88e5}
@@ -131,6 +148,16 @@
     <div id="historyContent"><div class="loading">読み込み中...</div></div>
   </div>
 </div>
+
+<!-- ここから追加：日別詳細モーダル -->
+<div class="modal-overlay" id="dayDetailModal" onclick="closeDayDetail()">
+  <div class="day-modal" onclick="event.stopPropagation()">
+    <div class="modal-title" id="dayDetailTitle"></div>
+    <div class="day-modal-body" id="dayDetailBody"></div>
+    <button class="btn-cancel" onclick="closeDayDetail()">閉じる</button>
+  </div>
+</div>
+<!-- ここまで追加 -->
 
 <div class="modal-overlay" id="editModal">
   <div class="modal">
@@ -420,10 +447,13 @@ function renderCalendar() {
       ? `<div class="cal-amount">${amount >= 10000 ? Math.floor(amount/1000)+'k' : '¥'+amount.toLocaleString()}</div>`
       : '';
 
-    cells.push(`<div class="${classes.join(' ')}">
+    // ここから変更：支出ありセルにタップで詳細モーダルを開くonclickを追加
+    const clickAttr = hasExpense ? `onclick="openDayDetail('${dateStr}')"` : '';
+    cells.push(`<div class="${classes.join(' ')}" ${clickAttr}>
       <div class="cal-day ${dayClass}">${d}</div>
       ${amountHtml}
     </div>`);
+    // ここまで変更
   }
 
   document.getElementById('calendarContent').innerHTML = `
@@ -435,6 +465,77 @@ function renderCalendar() {
       </div>
     </div>
   `;
+}
+// ここまで追加
+
+// ここから追加：日別詳細モーダルを開く
+function openDayDetail(dateStr) {
+  // 対象日の支出を取得（収入除外）
+  const rows = allData.filter(r => r.date === dateStr && r.amount > 0 && r.category !== '収入');
+  if (rows.length === 0) return;
+
+  // 日付タイトル用に「4月15日」形式に変換
+  const parts = dateStr.split('/');
+  const titleDate = `${parseInt(parts[1])}月${parseInt(parts[2])}日の支出`;
+  document.getElementById('dayDetailTitle').textContent = titleDate;
+
+  // 夫・妻それぞれの合計を計算
+  const kazuTotal = rows.filter(r => r.uid === MY_UID).reduce((s, r) => s + r.amount, 0);
+  const momoTotal = rows.filter(r => r.uid === WIFE_UID).reduce((s, r) => s + r.amount, 0);
+  const dayTotal  = rows.reduce((s, r) => s + r.amount, 0);
+
+  // 各明細行を生成（金額の大きい順に並べる）
+  const itemsHtml = [...rows]
+    .sort((a, b) => b.amount - a.amount)
+    .map(r => {
+      const emoji = CAT_EMOJI[r.category] || '📌';
+      // 誰の支出かを示すバッジ
+      const whoHtml = r.uid === MY_UID
+        ? '<span class="history-who who-kazu" style="font-size:10px;padding:1px 6px">夫</span>'
+        : r.uid === WIFE_UID
+        ? '<span class="history-who who-wife" style="font-size:10px;padding:1px 6px">妻</span>'
+        : '';
+      return `
+      <div class="day-detail-item">
+        <div class="day-detail-cat">
+          <div class="day-detail-cat-name">${emoji} ${r.category} ${whoHtml}</div>
+          ${r.memo ? `<div class="day-detail-memo">${r.memo}</div>` : ''}
+        </div>
+        <div class="day-detail-amount">¥${r.amount.toLocaleString()}</div>
+      </div>`;
+    }).join('');
+
+  // 夫・妻の内訳サマリ（両方ともデータがある場合のみ表示）
+  let summaryHtml = '';
+  if (kazuTotal > 0 && momoTotal > 0) {
+    summaryHtml = `
+    <div style="display:flex;gap:8px;margin-top:10px;margin-bottom:2px">
+      <div style="flex:1;background:#eef3ff;border-radius:8px;padding:8px;text-align:center">
+        <div style="font-size:11px;color:#2a73ff;margin-bottom:2px">👤 夫</div>
+        <div style="font-size:13px;font-weight:600;color:#2a73ff">¥${kazuTotal.toLocaleString()}</div>
+      </div>
+      <div style="flex:1;background:#fff0f5;border-radius:8px;padding:8px;text-align:center">
+        <div style="font-size:11px;color:#d4537e;margin-bottom:2px">👤 妻</div>
+        <div style="font-size:13px;font-weight:600;color:#d4537e">¥${momoTotal.toLocaleString()}</div>
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('dayDetailBody').innerHTML = `
+    ${itemsHtml}
+    ${summaryHtml}
+    <div class="day-detail-total">
+      <span class="day-detail-total-label">合計</span>
+      <span class="day-detail-total-amount">¥${dayTotal.toLocaleString()}</span>
+    </div>
+  `;
+
+  document.getElementById('dayDetailModal').classList.add('show');
+}
+
+// 日別詳細モーダルを閉じる
+function closeDayDetail() {
+  document.getElementById('dayDetailModal').classList.remove('show');
 }
 // ここまで追加
 
