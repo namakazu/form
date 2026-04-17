@@ -225,9 +225,11 @@ let pieChart = null;
 let barChart = null;
 let editingRowIndex = null;
 
+// ここから変更：Date.now()だと並列呼び出し時に名前が衝突するため連番カウンターに変更
+let _jsonpSeq = 0;
 function jsonp(url) {
   return new Promise((resolve, reject) => {
-    const cb = 'cb_' + Date.now();
+    const cb = 'cb_' + (++_jsonpSeq);
     window[cb] = (data) => { resolve(data); delete window[cb]; };
     const s = document.createElement('script');
     s.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cb;
@@ -235,6 +237,7 @@ function jsonp(url) {
     document.head.appendChild(s);
   });
 }
+// ここまで変更
 
 async function loadData() {
   try {
