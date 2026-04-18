@@ -58,6 +58,21 @@
     .chart-wrap{position:relative;height:220px;margin:8px 0}
     .trend-wrap{position:relative;height:200px;margin:8px 0}
 
+    /* 負担率カード */
+    .burden-row{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:0.5px solid #f0f0f0}
+    .burden-row:last-child{border-bottom:none}
+    .burden-label{font-size:12px;color:#333;width:44px;flex-shrink:0}
+    .burden-bar-outer{flex:1;background:#f0f0f0;border-radius:4px;height:8px;overflow:hidden}
+    .burden-bar-inner{height:8px;border-radius:4px;transition:width 0.5s}
+    .burden-kazu{background:#2a73ff}
+    .burden-momo{background:#d4537e}
+    .burden-pct{font-size:11px;color:#888;width:32px;text-align:right;flex-shrink:0}
+    .burden-amt{font-size:12px;font-weight:600;width:65px;text-align:right;flex-shrink:0}
+    /* カテゴリ別夫妻ミニ表示 */
+    .cat-split{display:flex;gap:10px;margin-top:5px;width:100%}
+    .cat-split-item{display:flex;align-items:center;gap:3px;font-size:10px;color:#888}
+    .cat-split-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
     /* カレンダー */
     .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-top:4px}
     .cal-header{text-align:center;font-size:11px;color:#888;padding:5px 0;font-weight:600}
@@ -362,9 +377,40 @@ function renderGraph() {
   }
 
   const cats = {};
-  expenseRows.forEach(r => { cats[r.category] = (cats[r.category] || 0) + r.amount; });
+  // ここから追加：カテゴリ別の夫妻内訳と負担率の計算
+  const catByPerson = {};
+  const kazuTotal = expenseRows.filter(r => r.uid === MY_UID).reduce((s, r) => s + r.amount, 0);
+  const momoTotal = expenseRows.filter(r => r.uid === WIFE_UID).reduce((s, r) => s + r.amount, 0);
+  expenseRows.forEach(r => {
+    cats[r.category] = (cats[r.category] || 0) + r.amount;
+    if (!catByPerson[r.category]) catByPerson[r.category] = { kazu: 0, momo: 0 };
+    if (r.uid === MY_UID)   catByPerson[r.category].kazu += r.amount;
+    if (r.uid === WIFE_UID) catByPerson[r.category].momo += r.amount;
+  });
+  // ここまで追加
   const sorted = Object.entries(cats).sort((a, b) => b[1] - a[1]);
   const trendData = buildTrend();
+
+  // ここから追加：負担率カードのHTML（どちらかでも支出があれば表示）
+  const kazuPct = totalExpense > 0 ? Math.round(kazuTotal / totalExpense * 100) : 0;
+  const momoPct = totalExpense > 0 ? Math.round(momoTotal / totalExpense * 100) : 0;
+  const burdenCardHtml = (kazuTotal > 0 || momoTotal > 0) ? `
+    <div class="card">
+      <div class="card-title">負担率</div>
+      <div class="burden-row">
+        <span class="burden-label">👤 夫</span>
+        <div class="burden-bar-outer"><div class="burden-bar-inner burden-kazu" style="width:${kazuPct}%"></div></div>
+        <span class="burden-pct">${kazuPct}%</span>
+        <span class="burden-amt" style="color:#2a73ff">¥${kazuTotal.toLocaleString()}</span>
+      </div>
+      <div class="burden-row">
+        <span class="burden-label">👤 妻</span>
+        <div class="burden-bar-outer"><div class="burden-bar-inner burden-momo" style="width:${momoPct}%"></div></div>
+        <span class="burden-pct">${momoPct}%</span>
+        <span class="burden-amt" style="color:#d4537e">¥${momoTotal.toLocaleString()}</span>
+      </div>
+    </div>` : '';
+  // ここまで追加
 
   // ここから追加：人物フィルターボタン（グラフエリアの上部に表示）
   const pfAll  = selectedPerson === 'all'  ? 'person-btn pf-all'  : 'person-btn';
@@ -381,6 +427,7 @@ function renderGraph() {
   document.getElementById('graphContent').innerHTML = `
     ${personFilterHtml}
     ${balanceBoxHtml}
+    ${burdenCardHtml}
 
     <div class="summary-box">
       <div class="summary-row">
@@ -410,10 +457,20 @@ function renderGraph() {
           const pct = totalExpense > 0 ? Math.round(amt / totalExpense * 100) : 0;
           const color = CAT_COLORS[cat] || '#C9CBCF';
           const emoji = CAT_EMOJI[cat] || '📌';
-          return `<div class="cat-item">
+          // ここから追加：カテゴリ別の夫妻ミニ表示
+          const kAmt = catByPerson[cat]?.kazu || 0;
+          const mAmt = catByPerson[cat]?.momo || 0;
+          const splitHtml = (kAmt > 0 || mAmt > 0) ? `
+            <div class="cat-split">
+              ${kAmt > 0 ? `<span class="cat-split-item"><span class="cat-split-dot" style="background:#2a73ff"></span>夫 ¥${kAmt.toLocaleString()}</span>` : ''}
+              ${mAmt > 0 ? `<span class="cat-split-item"><span class="cat-split-dot" style="background:#d4537e"></span>妻 ¥${mAmt.toLocaleString()}</span>` : ''}
+            </div>` : '';
+          // ここまで追加
+          return `<div class="cat-item" style="flex-wrap:wrap">
             <span class="cat-name">${emoji} ${cat}</span>
             <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:${color}"></div></div>
             <span class="cat-amount">¥${amt.toLocaleString()}</span>
+            ${splitHtml}
           </div>`;
         }).join('')}
       </div>
