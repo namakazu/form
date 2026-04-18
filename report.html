@@ -394,7 +394,8 @@ function renderGraph() {
   // ここから追加：負担率カードのHTML（どちらかでも支出があれば表示）
   const kazuPct = totalExpense > 0 ? Math.round(kazuTotal / totalExpense * 100) : 0;
   const momoPct = totalExpense > 0 ? Math.round(momoTotal / totalExpense * 100) : 0;
-  const burdenCardHtml = (kazuTotal > 0 || momoTotal > 0) ? `
+  // 人物フィルターが全員のときだけ表示（夫フィルター時は妻が0%になり誤解を招くため）
+  const burdenCardHtml = selectedPerson === 'all' && (kazuTotal > 0 || momoTotal > 0) ? `
     <div class="card">
       <div class="card-title">負担率</div>
       <div class="burden-row">
@@ -501,7 +502,13 @@ function buildTrend() {
   const months = [...new Set(allData.map(r => r.month))].sort().slice(-6);
   return months.map(m => ({
     month: m,
-    total: allData.filter(r => r.month === m && r.amount > 0 && r.category !== '収入').reduce((s, r) => s + r.amount, 0)
+    // 人物フィルターを月別推移にも反映する
+    total: allData.filter(r => {
+      if (r.month !== m || r.amount <= 0 || r.category === '収入') return false;
+      if (selectedPerson === 'kazu') return r.uid === MY_UID;
+      if (selectedPerson === 'momo') return r.uid === WIFE_UID;
+      return true;
+    }).reduce((s, r) => s + r.amount, 0)
   }));
 }
 
@@ -728,7 +735,11 @@ async function saveEdit() {
     + '&memo=' + encodeURIComponent(memo));
 
   const idx = allData.findIndex(r => r.rowIndex === editingRowIndex);
-  if (idx !== -1) allData[idx] = { ...allData[idx], date: dateStr, month: dateStr.slice(0, 7), category, amount, memo };
+  if (idx !== -1) {
+    // input[type=date]は"2026-04-15"形式で返すので、スラッシュ形式"2026/04/15"に統一する
+    const dateFormatted = dateStr.replace(/-/g, '/');
+    allData[idx] = { ...allData[idx], date: dateFormatted, month: dateFormatted.slice(0, 7), category, amount, memo };
+  }
 
   closeModal();
   renderHistory();
