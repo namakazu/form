@@ -103,7 +103,8 @@
 
     /* ここから追加：日別詳細モーダル */
     .day-modal{background:#fff;border-radius:16px;padding:20px;width:90%;max-width:400px;max-height:80vh;display:flex;flex-direction:column}
-    .day-modal-body{overflow-y:auto;flex:1;margin:12px 0}
+    /* overscroll-behavior:containでモーダル内スクロールが背景に伝わらないようにする */
+    .day-modal-body{overflow-y:auto;flex:1;margin:12px 0;overscroll-behavior:contain}
     .day-detail-item{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:0.5px solid #f0f0f0}
     .day-detail-item:last-child{border-bottom:none}
     .day-detail-cat{flex:1;font-size:13px;color:#333;min-width:0}
@@ -664,6 +665,7 @@ function openCatDetail(cat) {
 
   document.getElementById('dayDetailBody').innerHTML = body;
   document.getElementById('dayDetailModal').classList.add('show');
+  document.body.style.overflow = 'hidden'; // 背景スクロールを止める
 }
 // ここまで追加
 
@@ -728,11 +730,13 @@ function openDayDetail(dateStr) {
   `;
 
   document.getElementById('dayDetailModal').classList.add('show');
+  document.body.style.overflow = 'hidden'; // 背景スクロールを止める
 }
 
-// 日別詳細モーダルを閉じる
+// 日別詳細モーダルを閉じる（背景スクロールを戻す）
 function closeDayDetail() {
   document.getElementById('dayDetailModal').classList.remove('show');
+  document.body.style.overflow = '';
 }
 // ここまで追加
 
@@ -773,10 +777,12 @@ function openEdit(rowIndex, date, category, amount, memo) {
   document.getElementById('editAmount').value = amount;
   document.getElementById('editMemo').value = memo;
   document.getElementById('editModal').classList.add('show');
+  document.body.style.overflow = 'hidden';
 }
 
 function closeModal() {
   document.getElementById('editModal').classList.remove('show');
+  document.body.style.overflow = '';
   editingRowIndex = null;
 }
 
