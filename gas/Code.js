@@ -68,6 +68,24 @@ function doGet(e){
     return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
   }
 
+  // ここから追加：世帯予算の一覧取得
+  if (p.action === 'getBudgets') {
+    const sh = SpreadsheetApp.openById(SHEET_ID).getSheetByName('予算設定');
+    const budgets = {};
+    if (sh) {
+      sh.getDataRange().getValues().slice(1).forEach(r => {
+        if (String(r[0]) === 'household' && r[1] && Number(r[2]) > 0) {
+          budgets[String(r[1])] = Number(r[2]);
+        }
+      });
+    }
+    const json = JSON.stringify({ status: 'ok', budgets });
+    const callback = p.callback || '';
+    if (callback) return ContentService.createTextOutput(callback + '(' + json + ')').setMimeType(ContentService.MimeType.JAVASCRIPT);
+    return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
+  }
+  // ここまで追加
+
   if (p.action === 'getFixedCosts') {
     const data = getFixedCostsData();
     const json = JSON.stringify({ status: 'ok', data });
@@ -146,6 +164,26 @@ function doPost(e){
       if (rowIdx >= 1) sh.deleteRow(rowIdx + 1);
       return ContentService.createTextOutput(JSON.stringify({ status: 'ok' })).setMimeType(ContentService.MimeType.JSON);
     }
+
+    // ここから追加：画面から世帯予算を保存（upsert）
+    if (body.action === 'setBudget') {
+      const sh = SpreadsheetApp.openById(SHEET_ID).getSheetByName('予算設定');
+      const category = String(body.category || '').trim();
+      const amount   = Number(body.amount) || 0;
+      if (!category) return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'カテゴリ不正' })).setMimeType(ContentService.MimeType.JSON);
+      const vals = sh.getDataRange().getValues();
+      let found = false;
+      for (let i = 1; i < vals.length; i++) {
+        if (String(vals[i][0]) === 'household' && String(vals[i][1]) === category) {
+          sh.getRange(i + 1, 3).setValue(amount);
+          found = true;
+          break;
+        }
+      }
+      if (!found) sh.appendRow(['household', category, amount]);
+      return ContentService.createTextOutput(JSON.stringify({ status: 'ok' })).setMimeType(ContentService.MimeType.JSON);
+    }
+    // ここまで追加
 
     if (body && body.events && body.events.forEach) body.events.forEach(handleEvent);
     return ContentService.createTextOutput('OK');
@@ -576,6 +614,177 @@ function sendDailyReport() {
   ].filter(Boolean);
   targets.forEach(uid => push(uid, msg));
 }
+
+/***********************
+ * 月次サマリー通知（毎月1日の朝トリガー用）
+ ***********************/
+function sendMonthlyReport() {
+  const now = new Date();
+
+  // 先月の年月を取得（今月1日の前日 = 先月末）
+  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+  const lastMon      = Utilities.formatDate(lastMonthEnd, 'Asia/Tokyo', 'yyyy/MM');
+  const lastMonLabel = Utilities.formatDate(lastMonthEnd, 'Asia/Tokyo', 'M月');
+
+  // 先々月の年月（前月比の計算に使う）
+  const twoMonthsAgoEnd = new Date(now.getFullYear(), now.getMonth() - 1, 0);
+  const twoMonAgo = Utilities.formatDate(twoMonthsAgoEnd, 'Asia/Tokyo', 'yyyy/MM');
+
+  const myUid   = PropertiesService.getScriptProperties().getProperty('MY_UID');
+  const wifeUid = PropertiesService.getScriptProperties().getProperty('WIFE_UID');
+  const rows = SpreadsheetApp.openById(SHEET_ID).getSheetByName('支出ログ').getDataRange().getValues().slice(1);
+
+  // 先月の収入・支出・夫妻別・カテゴリ別を集計
+  let lastMonIncome = 0, lastMonExpense = 0, kazuExpense = 0, momoExpense = 0;
+  const catTotals = {};
+  rows.forEach(r => {
+    if (!(r[0] instanceof Date)) return;
+    if (Utilities.formatDate(r[0], 'Asia/Tokyo', 'yyyy/MM') !== lastMon) return;
+    const amt = Number(r[3]) || 0;
+    const uid = String(r[6] || '');
+    if (r[1] === '収入') { lastMonIncome += Math.abs(amt); return; }
+    if (r[1] === '支給' || amt <= 0) return;
+    lastMonExpense += amt;
+    if (uid === myUid)   kazuExpense += amt;
+    if (uid === wifeUid) momoExpense += amt;
+    catTotals[r[1]] = (catTotals[r[1]] || 0) + amt;
+  });
+
+  // 先々月の支出合計（前月比の計算用）
+  let twoMonExpense = 0;
+  rows.forEach(r => {
+    if (!(r[0] instanceof Date)) return;
+    if (Utilities.formatDate(r[0], 'Asia/Tokyo', 'yyyy/MM') !== twoMonAgo) return;
+    if (r[1] === '収入' || r[1] === '支給') return;
+    const amt = Number(r[3]) || 0;
+    if (amt > 0) twoMonExpense += amt;
+  });
+
+  // 余剰資金・前月比・年間ペースを計算
+  const surplus    = lastMonIncome - lastMonExpense;
+  const monthlyDiff = twoMonExpense > 0 ? lastMonExpense - twoMonExpense : null;
+  const annualPace = surplus * 12;
+
+  // 支出カテゴリのTop3を抽出
+  const top3 = Object.entries(catTotals).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+  // メッセージ組み立て
+  let msg = `📅 ${lastMonLabel}の家計まとめ\n━━━━━━━━━━\n`;
+  msg += `💰 収入：¥${lastMonIncome.toLocaleString()}\n`;
+  msg += `💴 支出：¥${lastMonExpense.toLocaleString()}\n`;
+  msg += ` └ 👤 夫：¥${kazuExpense.toLocaleString()}\n`;
+  msg += ` └ 👤 妻：¥${momoExpense.toLocaleString()}\n`;
+  msg += `━━━━━━━━━━\n`;
+
+  // 余剰資金（黒字/赤字で表現を変える）
+  if (surplus >= 0) {
+    msg += `✨ 余剰資金：¥${surplus.toLocaleString()}\n`;
+  } else {
+    msg += `⚠️ 赤字：-¥${Math.abs(surplus).toLocaleString()}\n`;
+  }
+
+  // 前月比（データがある場合のみ表示）
+  if (monthlyDiff !== null) {
+    const arrow = monthlyDiff <= 0 ? '▼' : '▲';
+    const label = monthlyDiff <= 0 ? '節約' : '増加';
+    msg += `前月比：${arrow}¥${Math.abs(monthlyDiff).toLocaleString()}（${label}）\n`;
+  }
+
+  // 支出Top3
+  if (top3.length > 0) {
+    msg += `\n📊 支出トップ3\n`;
+    top3.forEach(([cat, amt], i) => {
+      msg += `${i + 1}位 ${getCatEmoji(cat)} ${cat}：¥${amt.toLocaleString()}\n`;
+    });
+  }
+
+  // 年間ペース（黒字の場合のみ表示）
+  if (surplus > 0) {
+    msg += `\n💡 このペースなら年間\n¥${annualPace.toLocaleString()} 貯まります！`;
+  }
+
+  // 夫婦両方に送信
+  const targets = [myUid, wifeUid].filter(Boolean);
+  targets.forEach(uid => push(uid, msg));
+}
+
+/***********************
+ * 支出ペースアラート（毎日トリガー用）
+ ***********************/
+// ここから追加：月の経過割合に対して支出が過多かどうかをチェックして通知
+function checkSpendingPace() {
+  const now     = new Date();
+  const today   = now.getDate();
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(); // 月末日
+  const elapsed = today / lastDay; // 月の経過割合（0〜1）
+
+  const thisMon = Utilities.formatDate(now, 'Asia/Tokyo', 'yyyy/MM');
+  const rows    = SpreadsheetApp.openById(SHEET_ID).getSheetByName('支出ログ').getDataRange().getValues().slice(1);
+  const budgetSheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('予算設定');
+
+  // 今月の支出をカテゴリ別に集計
+  const monCats = {};
+  let totalExpense = 0, totalIncome = 0;
+  rows.forEach(r => {
+    if (!(r[0] instanceof Date)) return;
+    if (Utilities.formatDate(r[0], 'Asia/Tokyo', 'yyyy/MM') !== thisMon) return;
+    const amt = Number(r[3]) || 0;
+    if (r[1] === '収入') { totalIncome += Math.abs(amt); return; }
+    if (r[1] === '支給' || amt <= 0) return;
+    totalExpense += amt;
+    monCats[r[1]] = (monCats[r[1]] || 0) + amt;
+  });
+
+  // 世帯予算を取得
+  const budgetVals = budgetSheet ? budgetSheet.getDataRange().getValues().slice(1) : [];
+  const budgets = {};
+  budgetVals.forEach(r => {
+    if (String(r[0]) === 'household' && r[1] && Number(r[2]) > 0) {
+      budgets[String(r[1])] = Number(r[2]);
+    }
+  });
+
+  // 収入をもとにペース判定（収入未入力なら予算合計で代用）
+  const totalBudget = Object.values(budgets).reduce((s, v) => s + v, 0);
+  const baseIncome  = totalIncome > 0 ? totalIncome : totalBudget;
+
+  // アラート条件：支出が「収入 × 経過割合 × 1.2」を超えたら（20%バッファ）
+  if (baseIncome <= 0) return; // 収入も予算もなければスキップ
+  const threshold = baseIncome * elapsed * 1.2;
+  if (totalExpense <= threshold) return;
+
+  // カテゴリ別にペースオーバーのものをピックアップ
+  const overCats = [];
+  Object.entries(monCats).forEach(([cat, amt]) => {
+    const budget = budgets[cat];
+    if (!budget) return;
+    const pct = amt / budget;
+    if (pct > elapsed * 1.2) {
+      overCats.push({ cat, amt, budget, pct: Math.round(pct * 100) });
+    }
+  });
+
+  // 通知メッセージを組み立て
+  const dayLabel  = `${today}日時点（月の${Math.round(elapsed * 100)}%経過）`;
+  let msg = `⚡ 支出ペースが速めです（${dayLabel}）\n━━━━━━━━━━\n`;
+  msg += `💴 今月の支出：¥${totalExpense.toLocaleString()}\n`;
+  msg += `📊 ペース目安：¥${Math.round(baseIncome * elapsed).toLocaleString()}\n`;
+  if (overCats.length > 0) {
+    msg += `\n⚠️ ペースオーバーのカテゴリ\n`;
+    overCats.sort((a, b) => b.pct - a.pct).forEach(({ cat, amt, budget, pct }) => {
+      msg += `${getCatEmoji(cat)} ${cat}：¥${amt.toLocaleString()} / 予算¥${budget.toLocaleString()}（${pct}%）\n`;
+    });
+  }
+  msg += `\n💡 残りはセーブしていきましょう！`;
+
+  // 夫婦両方に送信
+  const targets = [
+    PropertiesService.getScriptProperties().getProperty('MY_UID'),
+    PropertiesService.getScriptProperties().getProperty('WIFE_UID')
+  ].filter(Boolean);
+  targets.forEach(uid => push(uid, msg));
+}
+// ここまで追加
 
 function getCatEmoji(cat) {
   const map = {

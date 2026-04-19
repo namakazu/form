@@ -153,6 +153,12 @@
     .loading{text-align:center;padding:40px;color:#888;font-size:14px}
     .error{text-align:center;padding:40px;color:#b00020;font-size:13px}
     .hidden{display:none}
+
+    /* 予算進捗バー */
+    .budget-prog-wrap{width:100%;margin-top:5px}
+    .budget-prog-bar-outer{background:#f0f0f0;border-radius:3px;height:4px;overflow:hidden}
+    .budget-prog-bar-inner{height:4px;border-radius:3px;transition:width 0.5s}
+    .budget-prog-text{font-size:10px;color:#aaa;margin-top:2px;display:flex;justify-content:space-between}
   </style>
 </head>
 <body>
@@ -233,6 +239,7 @@ const CAT_EMOJI = {
 
 let allData = [];
 let balanceData = null;
+let budgetData = {}; // ここから追加：世帯予算データ（カテゴリ→金額）
 let selectedMonth = '';
 // ここから追加：グラフタブの人物フィルター（'all' / 'kazu' / 'momo'）
 let selectedPerson = 'all';
@@ -257,10 +264,11 @@ function jsonp(url) {
 
 async function loadData() {
   try {
-    // ここから変更：2つのAPIを並列取得し、両方揃ってから1回だけ描画する
-    const [reportResult, balanceResult] = await Promise.allSettled([
+    // ここから変更：3つのAPIを並列取得し、すべて揃ってから1回だけ描画する
+    const [reportResult, balanceResult, budgetsResult] = await Promise.allSettled([
       jsonp(GAS_URL + '?action=getReport'),
-      jsonp(GAS_URL + '?action=getBalance')
+      jsonp(GAS_URL + '?action=getBalance'),
+      jsonp(GAS_URL + '?action=getBudgets')
     ]);
 
     if (reportResult.status === 'fulfilled') {
@@ -269,12 +277,15 @@ async function loadData() {
       throw reportResult.reason; // レポート取得失敗は致命的エラーとして扱う
     }
 
-    // 残額は取得できなくてもグラフ表示は継続（balanceDataはnullのまま）
+    // 残額・予算は取得できなくてもグラフ表示は継続
     if (balanceResult.status === 'fulfilled') {
       balanceData = balanceResult.value;
     }
+    if (budgetsResult.status === 'fulfilled') {
+      budgetData = budgetsResult.value.budgets || {};
+    }
 
-    // 両方揃った状態で1回だけ描画
+    // 全て揃った状態で1回だけ描画
     setupMonths();
     renderHistory();
     // ここまで変更
@@ -468,12 +479,33 @@ function renderGraph() {
               ${mAmt > 0 ? `<span class="cat-split-item"><span class="cat-split-dot" style="background:#d4537e"></span>妻 ¥${mAmt.toLocaleString()}</span>` : ''}
             </div>` : '';
           // ここまで追加
+          // ここから追加：予算バーHTML（予算設定がある場合のみ表示）
+          const budget = budgetData[cat] || 0;
+          let budgetBarHtml = '';
+          if (budget > 0) {
+            const budgetPct = Math.min(Math.round(amt / budget * 100), 100);
+            const overBudget = amt > budget;
+            const barColor = overBudget ? '#b00020' : amt / budget >= 0.8 ? '#ff9800' : '#2a73ff';
+            budgetBarHtml = `
+              <div class="budget-prog-wrap">
+                <div class="budget-prog-bar-outer">
+                  <div class="budget-prog-bar-inner" style="width:${budgetPct}%;background:${barColor}"></div>
+                </div>
+                <div class="budget-prog-text">
+                  <span>¥${amt.toLocaleString()} / 予算¥${budget.toLocaleString()}</span>
+                  <span style="color:${overBudget?'#b00020':barColor};font-weight:600">${budgetPct}%${overBudget?' ⚠️':''}</span>
+                </div>
+              </div>`;
+          }
+          // ここまで追加
+
           // カテゴリ行をタップすると詳細モーダルを開く
           return `<div class="cat-item" style="flex-wrap:wrap;cursor:pointer" onclick="openCatDetail('${cat.replace(/'/g, "\\'")}')">
             <span class="cat-name">${emoji} ${cat}</span>
             <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:${color}"></div></div>
             <span class="cat-amount">¥${amt.toLocaleString()}</span>
             ${splitHtml}
+            ${budgetBarHtml}
           </div>`;
         }).join('')}
       </div>

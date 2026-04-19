@@ -15,6 +15,7 @@
     .tab.active{background:#2a73ff;color:#fff;font-weight:600}
     .tab.income-active{background:#00a86b;color:#fff;font-weight:600}
     .tab.fixed-active{background:#ff6b35;color:#fff;font-weight:600}
+    .tab.budget-active{background:#9b59b6;color:#fff;font-weight:600}
     .card{background:#fff;border-radius:12px;padding:16px;margin-bottom:16px;border:0.5px solid #e0e0e0}
     .field{margin-bottom:14px}
     label{display:block;font-size:12px;color:#666;margin-bottom:6px;font-weight:500}
@@ -70,6 +71,16 @@
 
     .loading{text-align:center;padding:20px;color:#888;font-size:14px}
     .hidden{display:none}
+
+    /* 予算タブ */
+    .budget-item{background:#fff;border-radius:10px;padding:14px;margin-bottom:10px;border:0.5px solid #e0e0e0}
+    .budget-item-header{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:#333;margin-bottom:10px}
+    .budget-row{display:flex;gap:8px;align-items:center}
+    .budget-input{flex:1;font-size:15px;padding:9px 12px;border:1.5px solid #e0e0e0;border-radius:8px;background:#fff}
+    .budget-input:focus{outline:none;border-color:#9b59b6}
+    .btn-budget-save{padding:9px 16px;border:none;border-radius:8px;background:#9b59b6;color:#fff;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}
+    .btn-budget-save:disabled{opacity:.5;cursor:not-allowed}
+    .budget-note{font-size:11px;color:#aaa;margin-top:6px}
   </style>
 </head>
 <body>
@@ -80,6 +91,7 @@
     <button class="tab active" onclick="switchTab('expense')">💴 支出</button>
     <button class="tab" onclick="switchTab('income')">💰 収入</button>
     <button class="tab" onclick="switchTab('fixed')">📋 固定費</button>
+    <button class="tab" onclick="switchTab('budget')">🎯 予算</button>
   </div>
 
   <!-- 支出タブ -->
@@ -135,6 +147,12 @@
     <button class="btn-add" onclick="openFixedModal()">＋ 固定費を追加する</button>
     <div id="fixedList"><div class="loading">読み込み中...</div></div>
   </div>
+
+  <!-- ここから追加：予算タブ -->
+  <div id="budgetTab" class="hidden">
+    <div id="budgetList"><div class="loading">読み込み中...</div></div>
+  </div>
+  <!-- ここまで追加 -->
 </div>
 
 <!-- 固定費フォームモーダル -->
@@ -261,17 +279,20 @@ function updateIncomeBtn() {
 }
 
 function switchTab(tab) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active', 'income-active', 'fixed-active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active', 'income-active', 'fixed-active', 'budget-active'));
   const tabs = document.querySelectorAll('.tab');
   if (tab === 'expense') tabs[0].classList.add('active');
   if (tab === 'income')  tabs[1].classList.add('income-active');
   if (tab === 'fixed')   tabs[2].classList.add('fixed-active');
+  if (tab === 'budget')  tabs[3].classList.add('budget-active');
 
   document.getElementById('expenseTab').classList.toggle('hidden', tab !== 'expense');
   document.getElementById('incomeTab').classList.toggle('hidden', tab !== 'income');
   document.getElementById('fixedTab').classList.toggle('hidden', tab !== 'fixed');
+  document.getElementById('budgetTab').classList.toggle('hidden', tab !== 'budget');
 
-  if (tab === 'fixed') loadFixedCosts();
+  if (tab === 'fixed')  loadFixedCosts();
+  if (tab === 'budget') loadBudgets(); // ここから追加：予算タブ開いたときに読み込む
 }
 
 function showMsg(id, text, isErr) {
@@ -456,6 +477,64 @@ async function deleteFixed(rowIndex) {
   setTimeout(() => loadFixedCosts(), 1000);
   alert('✅ 削除しました！');
 }
+
+// ここから追加：予算タブの読み込みと保存
+const BUDGET_CATS = [
+  {key:'食費',   emoji:'🍜'},
+  {key:'外食',   emoji:'🍽️'},
+  {key:'交通',   emoji:'🚃'},
+  {key:'交際',   emoji:'🥂'},
+  {key:'日用品', emoji:'🛒'},
+  {key:'娯楽',   emoji:'🎉'},
+  {key:'その他', emoji:'📦'},
+];
+
+let _budgetSeq = 0;
+
+function loadBudgets() {
+  document.getElementById('budgetList').innerHTML = '<div class="loading">読み込み中...</div>';
+  const cb = 'budgetCb_' + (++_budgetSeq);
+  window[cb] = (json) => {
+    delete window[cb];
+    renderBudgetList(json.budgets || {});
+  };
+  const s = document.createElement('script');
+  s.src = GAS_URL + '?action=getBudgets&callback=' + cb;
+  s.onerror = () => { document.getElementById('budgetList').innerHTML = '<div class="loading">読み込みに失敗しました</div>'; };
+  document.head.appendChild(s);
+}
+
+function renderBudgetList(budgets) {
+  document.getElementById('budgetList').innerHTML = BUDGET_CATS.map(c => `
+    <div class="budget-item">
+      <div class="budget-item-header">${c.emoji} ${c.key}</div>
+      <div class="budget-row">
+        <input class="budget-input" type="number" inputmode="numeric" id="budget_${c.key}"
+          placeholder="月の予算（円）" value="${budgets[c.key] || ''}">
+        <button class="btn-budget-save" onclick="saveBudget('${c.key}')">保存</button>
+      </div>
+      <div class="budget-note" id="budgetNote_${c.key}"></div>
+    </div>
+  `).join('');
+}
+
+async function saveBudget(category) {
+  const input  = document.getElementById('budget_' + category);
+  const note   = document.getElementById('budgetNote_' + category);
+  const amount = Number(input.value);
+  if (amount < 0) { note.textContent = '金額は0以上で入力してください'; return; }
+
+  note.textContent = '保存中…';
+  await fetch(GAS_URL, {
+    method: 'POST', mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'setBudget', category, amount })
+  });
+
+  note.textContent = amount > 0 ? `✅ ¥${amount.toLocaleString()} を設定しました` : '✅ 予算をクリアしました';
+  setTimeout(() => { note.textContent = ''; }, 2000);
+}
+// ここまで追加
 
 document.addEventListener('DOMContentLoaded', init);
 </script>
