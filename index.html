@@ -293,13 +293,18 @@ async function submitExpense() {
     body: JSON.stringify({ action: 'formAdd', uid, dateStr: date, amount, category: selectedCat, sub: '', memo })
   });
 
+  // ここから変更：自動closeを廃止し、フォームをリセットして続けて入力できるようにする
   showMsg('expenseMsg', '✅ 記録しました！', false);
   document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
   selectedCat = null;
   document.getElementById('amount').value = '';
   document.getElementById('memo').value = '';
   btn.disabled = true;
-  setTimeout(() => { try { liff.closeWindow(); } catch(e) {} }, 1200);
+  setTimeout(() => {
+    document.getElementById('expenseMsg').className = 'msg hidden';
+    updateExpenseBtn();
+  }, 1500);
+  // ここまで変更
 }
 
 async function submitIncome() {
@@ -317,13 +322,18 @@ async function submitIncome() {
     body: JSON.stringify({ action: 'formAdd', uid, dateStr: date, amount: -amount, category: '収入', sub: selectedInc, memo })
   });
 
+  // ここから変更：収入も同様に自動closeを廃止
   showMsg('incomeMsg', '✅ 記録しました！', false);
   document.querySelectorAll('.inc-btn').forEach(b => b.classList.remove('selected'));
   selectedInc = null;
   document.getElementById('incAmount').value = '';
   document.getElementById('incMemo').value = '';
   btn.disabled = true;
-  setTimeout(() => { try { liff.closeWindow(); } catch(e) {} }, 1200);
+  setTimeout(() => {
+    document.getElementById('incomeMsg').className = 'msg hidden';
+    updateIncomeBtn();
+  }, 1500);
+  // ここまで変更
 }
 
 // 固定費一覧読み込み

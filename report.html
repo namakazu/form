@@ -397,7 +397,7 @@ function renderGraph() {
   // 人物フィルターが全員のときだけ表示（夫フィルター時は妻が0%になり誤解を招くため）
   const burdenCardHtml = selectedPerson === 'all' && (kazuTotal > 0 || momoTotal > 0) ? `
     <div class="card">
-      <div class="card-title">負担率</div>
+      <div class="card-title">ふたりの支出</div>
       <div class="burden-row">
         <span class="burden-label">👤 夫</span>
         <div class="burden-bar-outer"><div class="burden-bar-inner burden-kazu" style="width:${kazuPct}%"></div></div>
@@ -467,7 +467,8 @@ function renderGraph() {
               ${mAmt > 0 ? `<span class="cat-split-item"><span class="cat-split-dot" style="background:#d4537e"></span>妻 ¥${mAmt.toLocaleString()}</span>` : ''}
             </div>` : '';
           // ここまで追加
-          return `<div class="cat-item" style="flex-wrap:wrap">
+          // カテゴリ行をタップすると詳細モーダルを開く
+          return `<div class="cat-item" style="flex-wrap:wrap;cursor:pointer" onclick="openCatDetail('${cat.replace(/'/g, "\\'")}')">
             <span class="cat-name">${emoji} ${cat}</span>
             <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:${color}"></div></div>
             <span class="cat-amount">¥${amt.toLocaleString()}</span>
@@ -607,6 +608,65 @@ function renderCalendar() {
 // ここまで追加
 
 // ここから追加：日別詳細モーダルを開く
+// ここから追加：カテゴリ別詳細モーダルを開く
+function openCatDetail(cat) {
+  // 選択中の月・カテゴリで絞り込み（収入除外・日付昇順）
+  const rows = allData.filter(r =>
+    r.month === selectedMonth && r.category === cat && r.amount > 0
+  ).sort((a, b) => a.date.localeCompare(b.date));
+
+  if (rows.length === 0) return;
+
+  const emoji = CAT_EMOJI[cat] || '📌';
+  document.getElementById('dayDetailTitle').textContent = `${emoji} ${cat}の詳細`;
+
+  // 夫・妻・その他に分類
+  const kazuRows  = rows.filter(r => r.uid === MY_UID);
+  const momoRows  = rows.filter(r => r.uid === WIFE_UID);
+  const otherRows = rows.filter(r => r.uid !== MY_UID && r.uid !== WIFE_UID);
+  const kazuTotal = kazuRows.reduce((s, r) => s + r.amount, 0);
+  const momoTotal = momoRows.reduce((s, r) => s + r.amount, 0);
+  const total     = rows.reduce((s, r) => s + r.amount, 0);
+
+  // 日付・メモ・金額の明細行を生成
+  const renderItems = (personRows) => personRows.map(r => {
+    const parts     = r.date.split('/');
+    const dateLabel = `${parseInt(parts[1])}/${parseInt(parts[2])}`;
+    return `
+    <div class="day-detail-item">
+      <div class="day-detail-cat">
+        <div class="day-detail-cat-name">${dateLabel}</div>
+        ${r.memo ? `<div class="day-detail-memo">${r.memo}</div>` : ''}
+      </div>
+      <div class="day-detail-amount">¥${r.amount.toLocaleString()}</div>
+    </div>`;
+  }).join('');
+
+  let body = '';
+  if (kazuRows.length > 0) {
+    body += `<div style="font-size:12px;font-weight:600;color:#2a73ff;padding:8px 0 4px">👤 夫（¥${kazuTotal.toLocaleString()}）</div>`;
+    body += renderItems(kazuRows);
+  }
+  if (momoRows.length > 0) {
+    body += `<div style="font-size:12px;font-weight:600;color:#d4537e;padding:8px 0 4px">👤 妻（¥${momoTotal.toLocaleString()}）</div>`;
+    body += renderItems(momoRows);
+  }
+  if (otherRows.length > 0) {
+    const otherTotal = otherRows.reduce((s, r) => s + r.amount, 0);
+    body += `<div style="font-size:12px;font-weight:600;color:#888;padding:8px 0 4px">未分類（¥${otherTotal.toLocaleString()}）</div>`;
+    body += renderItems(otherRows);
+  }
+  body += `
+    <div class="day-detail-total">
+      <span class="day-detail-total-label">合計</span>
+      <span class="day-detail-total-amount">¥${total.toLocaleString()}</span>
+    </div>`;
+
+  document.getElementById('dayDetailBody').innerHTML = body;
+  document.getElementById('dayDetailModal').classList.add('show');
+}
+// ここまで追加
+
 function openDayDetail(dateStr) {
   // 対象日の支出を取得（収入除外）
   const rows = allData.filter(r => r.date === dateStr && r.amount > 0 && r.category !== '収入');
