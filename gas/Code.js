@@ -3,6 +3,7 @@
 // ────────────
 const SHEET_ID = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
 const TOKEN    = PropertiesService.getScriptProperties().getProperty('LINE_ACCESS_TOKEN');
+// スクリプトプロパティ: MY_UID（あなたのLINE UID）、WIFE_UID（パートナーのUID）も設定してください
 
 /***********************
  * Webhook / Web App
