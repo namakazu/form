@@ -244,6 +244,7 @@ let selectedMonth = '';
 // ここから追加：グラフタブの人物フィルター（'all' / 'kazu' / 'momo'）
 let selectedPerson = 'all';
 // ここまで追加
+let selectedHistoryFilter = 'all'; // 履歴タブのフィルター（'all' / 'expense' / 'income'）
 let pieChart = null;
 let barChart = null;
 let editingRowIndex = null;
@@ -331,6 +332,10 @@ function selectMonth(m) {
   // カレンダータブが表示中なら再描画
   if (!document.getElementById('calendarTab').classList.contains('hidden')) {
     renderCalendar();
+  }
+  // 履歴タブが表示中なら再描画
+  if (!document.getElementById('historyTab').classList.contains('hidden')) {
+    renderHistory();
   }
 }
 
@@ -772,11 +777,38 @@ function closeDayDetail() {
 }
 // ここまで追加
 
-function renderHistory() {
-  const sorted = [...allData].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 50);
-  if (sorted.length === 0) { document.getElementById('historyContent').innerHTML = '<div class="loading">記録がありません</div>'; return; }
+function setHistoryFilter(f) {
+  selectedHistoryFilter = f;
+  renderHistory();
+}
 
-  document.getElementById('historyContent').innerHTML = sorted.map(r => {
+function renderHistory() {
+  const hfAll     = selectedHistoryFilter === 'all'     ? 'person-btn pf-all'  : 'person-btn';
+  const hfExpense = selectedHistoryFilter === 'expense' ? 'person-btn pf-kazu' : 'person-btn';
+  const hfIncome  = selectedHistoryFilter === 'income'  ? 'person-btn pf-momo' : 'person-btn';
+  const filterHtml = `
+    <div class="person-filter" style="margin-bottom:12px">
+      <button class="${hfAll}"     onclick="setHistoryFilter('all')">すべて</button>
+      <button class="${hfExpense}" onclick="setHistoryFilter('expense')">💴 支出</button>
+      <button class="${hfIncome}"  onclick="setHistoryFilter('income')">💰 収入</button>
+    </div>`;
+
+  // 選択中の月 × フィルターで絞り込み
+  const filtered = [...allData]
+    .filter(r => {
+      if (r.month !== selectedMonth) return false;
+      if (selectedHistoryFilter === 'expense') return r.category !== '収入';
+      if (selectedHistoryFilter === 'income')  return r.category === '収入';
+      return true;
+    })
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  if (filtered.length === 0) {
+    document.getElementById('historyContent').innerHTML = filterHtml + '<div class="loading">記録がありません</div>';
+    return;
+  }
+
+  document.getElementById('historyContent').innerHTML = filterHtml + filtered.map(r => {
     const isIncome = r.category === '収入';
     const emoji = CAT_EMOJI[r.category] || '📌';
     const whoLabel = r.uid === MY_UID ? '<span class="history-who who-kazu">👤 夫</span>' : r.uid === WIFE_UID ? '<span class="history-who who-wife">👤 妻</span>' : '';
